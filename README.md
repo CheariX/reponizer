@@ -1,6 +1,6 @@
 # Reponizer
 
-A Raycast extension that keeps a large, structured git repository folder organized. It works with the `host/owner/repo` layout used by [git-get](https://github.com/grdl/git-get) (e.g. `~/repos/github.com/lonetis/reponizer`) and turns Raycast into a fast overview, health check, and toolbox for all your local repositories.
+Reponizer keeps a large, structured git repository folder organized. It works with the `host/owner/repo` layout used by [git-get](https://github.com/grdl/git-get) and [ghq](https://github.com/x-motemen/ghq) — for example `~/repos/github.com/lonetis/reponizer` — and turns Raycast into a fast overview, health check, and toolbox for every repository you have cloned locally.
 
 ## Features
 
@@ -17,32 +17,11 @@ A Raycast extension that keeps a large, structured git repository folder organiz
 - **Menu bar health check** *(optional)* — a quiet counter of repositories that need attention
 - **Quick actions** — open in your editor, terminal, Finder, or on the remote host's website; copy paths and URLs; move repos to the Trash
 
-## Getting Started
+## Setup
 
-### Installation
+Reponizer works out of the box if your repositories live in `~/repos` in a `host/owner/repo` layout. Otherwise, open any Reponizer command, press `⌘ ,`, and set the **Repositories Root**.
 
-The extension is not in the Raycast Store; install it locally:
-
-1. Install [Raycast](https://raycast.com) and [Node.js](https://nodejs.org) (e.g. `brew install node`).
-2. Clone this repository and install dependencies:
-
-   ```sh
-   git clone https://github.com/lonetis/reponizer.git
-   cd reponizer
-   npm install
-   ```
-
-3. Import it into Raycast:
-
-   ```sh
-   npm run dev
-   ```
-
-   This opens Raycast with the extension installed. You can stop the dev server afterwards (`Ctrl+C`); the extension stays available in Raycast.
-
-### Configuration
-
-Open any Reponizer command, press `⌘ ,`, and adjust the preferences:
+### Preferences
 
 - **Repositories Root** — the folder containing all repos (default `~/repos`)
 - **Default Protocol** — SSH (default) or HTTPS; used for suggested origin URLs and bare-path clones
@@ -52,7 +31,7 @@ Open any Reponizer command, press `⌘ ,`, and adjust the preferences:
 - **Host-Only Comparison** — comma-separated hosts (alias or real host) whose repos are audited by host only, so the folder layout below them is up to you
 - **Editor / Terminal** — the apps used by the open actions; besides Terminal.app and iTerm2, terminals like kitty, Alacritty, WezTerm, Ghostty, and Warp open directly in the repository folder
 
-### Commands
+## Commands
 
 | Command | What it does |
 | --- | --- |
@@ -67,12 +46,16 @@ Open any Reponizer command, press `⌘ ,`, and adjust the preferences:
 - Press `⌘ I` on any repository to toggle a detail panel with remotes, sync state, and sizes.
 - The list opens instantly from cache and rescans in the background; `⌘ R` forces a rescan, `⌥⌘ R` also recomputes folder sizes.
 - **Offloading**: Reponizer refuses to offload a repo with unpushed branches, uncommitted changes, untracked files, or stashes — nothing is ever lost. The freed folder keeps a small `reponizer-offloaded.json` placeholder so you (and the import command) know what belongs there.
-- **Importing on a fresh machine**: choose *Create offloaded placeholders* to mirror the whole structure without downloading anything, then restore repos on demand.
+- **Importing on a fresh machine**: choose *Create Offloaded Placeholders* to mirror the whole structure without downloading anything, then restore repos on demand.
 
 ## Troubleshooting
 
-- **SSH authentication fails when fetching/cloning**: Raycast does not inherit your shell environment. Reponizer automatically falls back to the 1Password SSH agent socket if `SSH_AUTH_SOCK` is unset; for other agent setups, configure the agent in `~/.ssh/config` (e.g. via `IdentityAgent`).
+- **SSH authentication fails when fetching or cloning**: Raycast does not inherit your shell environment. Reponizer automatically falls back to the 1Password SSH agent socket if `SSH_AUTH_SOCK` is unset; for other agent setups, configure the agent in `~/.ssh/config` (e.g. via `IdentityAgent`).
 - **Repos are missing from the list**: they may be deeper than the configured scan depth, or inside a hidden folder — both are skipped.
+
+## Contributing
+
+Bug reports and pull requests are welcome at [github.com/lonetis/reponizer](https://github.com/lonetis/reponizer).
 
 ## License
 

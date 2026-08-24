@@ -1,26 +1,17 @@
 # Reponizer Changelog
 
-## [Network Concurrency] - 2026-07-23
+## [Initial Version] - {PR_MERGE_DATE}
 
-- New **Network Concurrency** preference: choose how many repositories Fetch All / Pull All sync in parallel (default 4) — applies to the no-view commands and the Fetch All / Pull All actions in the repository list
-
-## [Terminal Support] - 2026-07-22
-
-- **Open in Terminal** now works with terminals that ignore a plain "open folder" event: kitty, Alacritty, WezTerm, Ghostty, and Warp are launched with the repository as working directory (Terminal.app and iTerm2 behave as before), and failures surface as a toast instead of silently doing nothing
-- The terminal is launched with a Finder-like environment, so shells no longer warn about Raycast's non-POSIX `LC_ALL` locale
-
-## [Host Aliases] - 2026-07-22
-
-- New **Host Aliases** preference: map folder names under the root to real remote hosts (`buw=git.uni-wuppertal.de`), so short or legacy folder names pass the remote audit; clone destinations, bare-path clone inputs, relocation targets, and duplicate detection all honor the mapping
-- New **Host-Only Comparison** preference: hosts whose repos are audited by host identity only, for services with opaque repo paths such as Overleaf project IDs
-
-## [Initial Version] - 2026-07-08
-
-- Search Repositories: hierarchical overview (host / owner sections), search, filters, detail panel
-- Repo status: branch, ahead/behind, uncommitted changes, stashes, size on disk
-- Remote auditing: origin must match the repo's location; auto-fix, relocate, manage remotes, protocol switching
-- Clone repositories straight into the host/owner/repo structure
-- Fetch All / Pull All (fast-forward only) with progress and summary
-- Offload local copies of in-sync repos to free disk space, and re-download them later
-- Export / import the repository list to mirror the folder across machines
-- Optional menu bar command showing repositories that need attention
+- Search Repositories: hierarchical overview grouped by host and owner, search, status filters, and a detail panel
+- Repo status at a glance: branch, ahead/behind counts, uncommitted changes, merge conflicts, stashes, and size on disk
+- Remote auditing: flags repositories whose `origin` does not match their location, repositories without remotes, and duplicates — with one-key fixes for the origin URL or the folder location
+- Remote management: add, edit, rename, and delete remotes, and switch any remote between SSH and HTTPS
+- Host aliases: map short folder names such as `buw` to real hosts such as `git.uni-wuppertal.de`, honored by auditing, cloning, relocation, and duplicate detection
+- Host-only comparison: audit hosts with opaque repository paths (such as Overleaf project IDs) by host identity alone
+- Clone Repository: paste any git URL or a bare `github.com/owner/repo` path and it lands in the right folder, keeping the protocol you pasted
+- Fetch All and Pull All: bulk sync with progress and a failure report; pulls are fast-forward only and skip repositories that are dirty, detached, or without an upstream
+- Configurable network concurrency for bulk sync, for SSH agents that struggle with parallel connections
+- Offload local copies: verify a repository is fully pushed, free its disk space, and keep a placeholder to restore it later
+- Export and Import Repository List: mirror the repository list across machines via a JSON file or a Raycast-synced snapshot
+- Repository Health: optional menu bar overview of repositories that need attention
+- Quick actions: open in editor, terminal, Finder, or on the remote host's website; copy paths and URLs; move repositories to the Trash

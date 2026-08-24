@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { RepoListItem } from "./components/RepoListItem";
 import { useRepoIndex } from "./hooks/useRepoIndex";
 import type { Filter } from "./lib/filters";
-import { attentionReasons, hostOf, matchesFilter, ownerOf } from "./lib/filters";
+import { hostOf, matchesFilter, ownerOf } from "./lib/filters";
 import type { RepoEntry } from "./lib/types";
 import { pluralize } from "./lib/util";
 
@@ -60,15 +60,12 @@ export default function Command() {
     return [...byGroup.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [entries, filter]);
 
-  const attentionCount = useMemo(() => entries.filter((entry) => attentionReasons(entry).length > 0).length, [entries]);
-
   return (
     <List
       isLoading={ctl.isLoading}
       isShowingDetail={showDetail}
       searchBarPlaceholder="Search repositories…"
       searchBarAccessory={<FilterDropdown hosts={hosts} owners={owners} onChange={setFilter} />}
-      navigationTitle={attentionCount > 0 ? `Repositories · ${pluralize(attentionCount, "issue")}` : "Repositories"}
     >
       {entries.length === 0 && ctl.scanError ? (
         <List.EmptyView

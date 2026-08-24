@@ -3,6 +3,7 @@
   "name": "reponizer",
   "title": "Reponizer",
   "description": "Organize, audit, and sync a structured git repository folder (git-get style host/owner/repo layout).",
+  "keywords": ["git", "repository", "repositories", "clone", "git-get", "ghq", "projects", "monorepo"],
   "icon": "icon.png",
   "author": "lonetis",
   "license": "MIT",
@@ -157,8 +158,7 @@
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.94.0",
-    "@raycast/utils": "^1.19.0",
+    "@raycast/api": "^2.0.5",
     "git-url-parse": "^16.0.1"
   },
   "devDependencies": {
@@ -176,6 +176,7 @@
     "dev": "ray develop",
     "lint": "ray lint",
     "fix-lint": "ray lint --fix",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "publish": "npx @raycast/api@latest publish"
   }
 }

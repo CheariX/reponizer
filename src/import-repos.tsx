@@ -136,13 +136,15 @@ export default function Command() {
           onChange={setFiles}
         />
       )}
-      <Form.Dropdown id="mode" title="Missing Repos" value={mode} onChange={(value) => setMode(value as Mode)}>
-        <Form.Dropdown.Item value="clone" title="Clone from origin" icon={Icon.Download} />
-        <Form.Dropdown.Item
-          value="placeholders"
-          title="Create offloaded placeholders (no download)"
-          icon={Icon.Cloud}
-        />
+      <Form.Dropdown
+        id="mode"
+        title="Missing Repos"
+        value={mode}
+        onChange={(value) => setMode(value as Mode)}
+        info="Placeholders mirror the folder structure without downloading anything; restore each repo on demand."
+      >
+        <Form.Dropdown.Item value="clone" title="Clone from Origin" icon={Icon.Download} />
+        <Form.Dropdown.Item value="placeholders" title="Create Offloaded Placeholders" icon={Icon.Cloud} />
       </Form.Dropdown>
     </Form>
   );
