@@ -4,7 +4,7 @@ import type { Protocol, RepoEntry, RepoIndex } from "./types";
 import { mapConcurrent } from "./util";
 
 /** Bump when the RepoIndex/RepoEntry shape changes so stale cached JSON is discarded. */
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 
 const cache = new Cache();
 

@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { getConfig } from "./config";
+import { inspectFork } from "./fork";
 import { git } from "./git";
 import { checkRemotes, normalizeRemoteUrl } from "./remotes";
 import { findRepoDirs, OFFLOAD_FILE } from "./scan";
@@ -52,13 +54,24 @@ export async function inspectRepo(root: string, fullPath: string, protocol: Prot
     ]);
     const remotes = parseRemoteLines(remotesOut);
     const stashes = stashOut ? stashOut.split("\n").filter(Boolean).length : 0;
+    const origin = remotes.find((r) => r.name === "origin");
+    const status = parseStatus(statusOut, stashes);
+    // Only repos that actually carry an upstream remote pay for the extra ref lookups.
+    const fork = await inspectFork(
+      fullPath,
+      remotes,
+      origin,
+      getConfig().upstreamRemoteName,
+      status.detached ? undefined : status.branch,
+    ).catch(() => undefined);
     return {
       kind: "repo",
       ...base,
       remotes,
-      origin: remotes.find((r) => r.name === "origin"),
-      status: parseStatus(statusOut, stashes),
+      origin,
+      status,
       remoteCheck: checkRemotes(base.relativePath, remotes, protocol),
+      fork,
       lastCommitAt: lastCommitAt || undefined,
     };
   } catch (error) {

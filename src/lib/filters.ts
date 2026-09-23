@@ -2,7 +2,16 @@ import { totalChanges } from "./status";
 import type { RepoEntry } from "./types";
 
 export type Filter =
-  "all" | "attention" | "remote-issues" | "dirty" | "unsynced" | "offloaded" | `host:${string}` | `owner:${string}`;
+  | "all"
+  | "attention"
+  | "remote-issues"
+  | "dirty"
+  | "unsynced"
+  | "forks"
+  | "fork-behind"
+  | "offloaded"
+  | `host:${string}`
+  | `owner:${string}`;
 
 export function hasRemoteIssue(entry: RepoEntry): boolean {
   if (entry.error) return true;
@@ -35,6 +44,13 @@ export function matchesFilter(entry: RepoEntry, filter: Filter): boolean {
   }
   if (filter === "unsynced") {
     return entry.kind === "repo" && !!entry.status && (entry.status.ahead > 0 || entry.status.behind > 0);
+  }
+  if (filter === "forks") {
+    return entry.kind === "repo" && !!entry.fork;
+  }
+  if (filter === "fork-behind") {
+    // Opt-in filter only: trailing the upstream is normal for a fork, so it is no attention reason.
+    return entry.kind === "repo" && !!entry.fork?.behind && entry.fork.behind > 0;
   }
   if (filter.startsWith("host:")) {
     return entry.relativePath.startsWith(filter.slice("host:".length) + "/");
