@@ -36,6 +36,20 @@ export interface RemoteCheck {
   message: string;
 }
 
+/** A repo that carries an upstream remote — i.e. a fork of the repository that remote points at. */
+export interface ForkInfo {
+  /** Remote name the upstream was found under (the `upstreamRemoteName` preference). */
+  remoteName: string;
+  url: string;
+  /** Path under the root the upstream URL maps to, when derivable. */
+  relativePath?: string;
+  /** Ref HEAD was compared against, e.g. "upstream/main". Absent when nothing was fetched yet. */
+  ref?: string;
+  /** Commits HEAD is ahead of / behind `ref`, as of the last fetch. */
+  ahead?: number;
+  behind?: number;
+}
+
 interface RepoEntryBase {
   name: string;
   /** Path relative to the repos root, POSIX separators, e.g. "github.com/lonetis/reponizer". */
@@ -52,6 +66,8 @@ export interface Repo extends RepoEntryBase {
   origin?: RemoteInfo;
   status?: RepoStatus;
   remoteCheck: RemoteCheck;
+  /** Set when an upstream remote makes this repo a fork. */
+  fork?: ForkInfo;
   lastCommitAt?: string;
   /** Relative paths of other repos sharing the same normalized origin. */
   duplicateOf?: string[];

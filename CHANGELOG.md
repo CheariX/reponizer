@@ -1,5 +1,15 @@
 # Reponizer Changelog
 
+## [Fork Support] - {PR_MERGE_DATE}
+
+- Fork awareness: repositories with an upstream remote are marked as forks, show how many commits they are behind their upstream, and can be filtered with the new "Forks" and "Forks Behind Upstream" filters
+- Sync from Upstream: fast-forward a fork from its upstream, for a single repository or for all forks at once — never a merge
+- Fork to…: fork any cloned repository to another host or namespace (`⌘⇧F`), with namespace autocompletion including GitLab subgroups and an optional new repository name; the new fork becomes `origin`, the previous origin is kept as the upstream remote, and the folder moves to its new place (optionally keeping the original checkout)
+- Choose how much is pushed to a new fork: all branches and tags, only the current branch, or nothing yet; GitLab and Gitea create the target project on first push, and for GitHub the error message links to the page for creating it
+- Clone Repository can now clone directly as a fork
+- New preferences: "Upstream Remote" for the remote name that marks a fork, and "Default Fork Namespaces" for a per-host preselected namespace
+- Fixed: importing a repository list now restores the extra remotes stored in the export (such as `upstream`) instead of only `origin`
+
 ## [Initial Version] - {PR_MERGE_DATE}
 
 - Search Repositories: hierarchical overview grouped by host and owner, search, status filters, and a detail panel

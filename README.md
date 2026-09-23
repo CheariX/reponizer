@@ -10,7 +10,9 @@ Reponizer keeps a large, structured git repository folder organized. It works wi
 - **Remote management** — add, edit, rename, and delete remotes; switch any remote between SSH and HTTPS
 - **Host aliases** — keep short folder names like `buw` for long hosts like `git.uni-wuppertal.de`; auditing, cloning, and relocation all understand the mapping
 - **Host-only comparison** — for hosts with opaque repo paths (e.g. Overleaf project IDs), only the host is audited so you can name the folders yourself
-- **Clone into structure** — paste any git URL (or a bare `github.com/owner/repo` path) and it lands in the right folder, keeping the protocol you pasted
+- **Fork awareness** — repos with an upstream remote are tagged as forks and show how far they have fallen behind it; filter for all forks or only those behind, and fast-forward one or all of them with *Sync from Upstream*
+- **Fork to…** — fork a cloned repo to another host or namespace (`⌘⇧F`), with autocompletion for the hosts and namespaces you already use (GitLab subgroups included) and an optional new name; your fork becomes the origin, the old one is kept as upstream, and the folder moves to its new place
+- **Clone into structure** — paste any git URL (or a bare `github.com/owner/repo` path) and it lands in the right folder, keeping the protocol you pasted; you can also clone straight into a fork of your own
 - **Fetch / Pull everything** — bulk fetch and safe fast-forward pulls with progress and a failure report
 - **Offload local copies** — verify a repo is fully pushed, then free its disk space while keeping a placeholder; re-download it anytime
 - **Export / import** — mirror your repository list across machines via a JSON file or the Raycast-synced snapshot
@@ -29,6 +31,8 @@ Reponizer works out of the box if your repositories live in `~/repos` in a `host
 - **Network Concurrency** — how many repos Fetch All / Pull All sync at once (default 4); raise it to finish faster, lower it if your SSH agent (e.g. 1Password) struggles with parallel connections
 - **Host Aliases** — comma-separated `alias=host` pairs mapping a folder name to the real remote host, e.g. `buw=git.uni-wuppertal.de, overleaf.com=git.overleaf.com`
 - **Host-Only Comparison** — comma-separated hosts (alias or real host) whose repos are audited by host only, so the folder layout below them is up to you
+- **Upstream Remote** — the remote name that marks a repo as a fork (default `upstream`)
+- **Default Fork Namespaces** — comma-separated `host=namespace` pairs preselecting where your forks go, e.g. `gitlab.com=me/subgroup, github.com=MyUser`
 - **Editor / Terminal** — the apps used by the open actions; besides Terminal.app and iTerm2, terminals like kitty, Alacritty, WezTerm, Ghostty, and Warp open directly in the repository folder
 
 ## Commands
@@ -47,6 +51,7 @@ Reponizer works out of the box if your repositories live in `~/repos` in a `host
 - The list opens instantly from cache and rescans in the background; `⌘ R` forces a rescan, `⌥⌘ R` also recomputes folder sizes.
 - **Offloading**: Reponizer refuses to offload a repo with unpushed branches, uncommitted changes, untracked files, or stashes — nothing is ever lost. The freed folder keeps a small `reponizer-offloaded.json` placeholder so you (and the import command) know what belongs there.
 - **Importing on a fresh machine**: choose *Create Offloaded Placeholders* to mirror the whole structure without downloading anything, then restore repos on demand.
+- **Forking**: you can pick how much is pushed to the new fork — all branches and tags, only the current branch, or nothing for now. GitLab and Gitea create the target repository on the first push; on GitHub you have to create the empty repository first, and Reponizer offers a link to do so if the push fails.
 
 ## Troubleshooting
 

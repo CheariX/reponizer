@@ -141,6 +141,21 @@
       "description": "Comma-separated hosts (alias or real host) whose repos are audited by host only — the folder path below the host may differ from the remote path (e.g. Overleaf’s opaque project IDs)."
     },
     {
+      "name": "upstreamRemoteName",
+      "type": "textfield",
+      "required": false,
+      "default": "upstream",
+      "title": "Upstream Remote",
+      "description": "Name of the remote that marks a repository as a fork and is used by “Sync from Upstream”."
+    },
+    {
+      "name": "defaultForkNamespaces",
+      "type": "textfield",
+      "required": false,
+      "title": "Default Fork Namespaces",
+      "description": "Comma-separated host=namespace pairs preselected when forking, e.g. “gitlab.com=me/subgroup, github.com=MyUser”. Switching the host in the fork form picks that host’s namespace; hosts without an entry start empty."
+    },
+    {
       "name": "editorApp",
       "type": "appPicker",
       "required": false,

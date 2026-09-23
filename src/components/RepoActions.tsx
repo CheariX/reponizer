@@ -10,12 +10,14 @@ import {
   closeMainWindow,
   confirmAlert,
   launchCommand,
+  open,
   openExtensionPreferences,
   showToast,
   trash,
 } from "@raycast/api";
 import type { RepoIndexController } from "../hooks/useRepoIndex";
 import { getConfig } from "../lib/config";
+import { ForkPushError, createRepoUrl, pushToOrigin, syncForkRepo, upstreamCandidates } from "../lib/fork";
 import { git } from "../lib/git";
 import { OffloadBlockedError, offloadRepo, restoreOffloaded } from "../lib/offload";
 import {
@@ -32,7 +34,8 @@ import { convertProtocol, expectedOriginFor, protocolOf, relativePathForUrl, web
 import { openInTerminal } from "../lib/terminal";
 import type { OffloadedRepo, Protocol, Repo, RepoEntry } from "../lib/types";
 import { describeTransition, errorMessage, formatBytes } from "../lib/util";
-import { RemotesView } from "./RemotesView";
+import { ForkView } from "./ForkView";
+import { RemoteForm, RemotesView } from "./RemotesView";
 
 interface ActionContext {
   entry: RepoEntry;
@@ -131,6 +134,34 @@ function CopyActions({ entry, showDetail, setShowDetail }: ActionContext) {
   );
 }
 
+/** Run `op` across every healthy repo the selector keeps, with a progress toast and one refresh. */
+function bulkAction(
+  ctl: RepoIndexController,
+  title: string,
+  op: (repo: Repo) => Promise<OpResult>,
+  select: (repo: Repo) => boolean = () => true,
+) {
+  return () =>
+    withToast(title, async (toast) => {
+      const repos = (ctl.index?.entries ?? []).filter(
+        (entry): entry is Repo => entry.kind === "repo" && !entry.error && select(entry),
+      );
+      if (repos.length === 0) return "Nothing to do";
+      const results = await runOnRepos(repos, op, getConfig().networkConcurrency, (done, total) => {
+        toast.message = `${done}/${total}`;
+      });
+      await ctl.refreshEntries(repos.map((r) => r.fullPath));
+      const { ok, skipped, failed } = summarizeResults(results);
+      if (failed.length > 0) {
+        throw new OperationFailure(`${ok} ok · ${skipped} skipped · ${failed.length} failed`, {
+          title: "Copy Failures",
+          onAction: () => Clipboard.copy(failureReport(failed)),
+        });
+      }
+      return `${ok} ok · ${skipped} skipped`;
+    });
+}
+
 function SyncActions({ entry, ctl }: ActionContext) {
   if (entry.kind !== "repo" || entry.error) return null;
   const repo = entry;
@@ -151,23 +182,6 @@ function SyncActions({ entry, ctl }: ActionContext) {
       return result.skipped ? `Skipped: ${result.skipped}` : "Pulled (fast-forward)";
     });
 
-  const bulk = (verb: string, op: (repo: Repo) => Promise<OpResult>) => () =>
-    withToast(`${verb} all repositories…`, async (toast) => {
-      const repos = (ctl.index?.entries ?? []).filter((e): e is Repo => e.kind === "repo" && !e.error);
-      const results = await runOnRepos(repos, op, getConfig().networkConcurrency, (done, total) => {
-        toast.message = `${done}/${total}`;
-      });
-      await ctl.refreshEntries(repos.map((r) => r.fullPath));
-      const { ok, skipped, failed } = summarizeResults(results);
-      if (failed.length > 0) {
-        throw new OperationFailure(`${ok} ok · ${skipped} skipped · ${failed.length} failed`, {
-          title: "Copy Failures",
-          onAction: () => Clipboard.copy(failureReport(failed)),
-        });
-      }
-      return `${ok} ok · ${skipped} skipped`;
-    });
-
   return (
     <ActionPanel.Section title="Sync">
       <Action title="Fetch" icon={Icon.ArrowDown} shortcut={{ modifiers: ["opt"], key: "f" }} onAction={fetchOne} />
@@ -181,14 +195,100 @@ function SyncActions({ entry, ctl }: ActionContext) {
         title="Fetch All"
         icon={Icon.ArrowDown}
         shortcut={{ modifiers: ["opt", "shift"], key: "f" }}
-        onAction={bulk("Fetching", fetchRepo)}
+        onAction={bulkAction(ctl, "Fetching all repositories…", fetchRepo)}
       />
       <Action
         title="Pull All"
         icon={Icon.Download}
         shortcut={{ modifiers: ["opt", "shift"], key: "p" }}
-        onAction={bulk("Pulling", pullRepo)}
+        onAction={bulkAction(ctl, "Pulling all repositories…", pullRepo)}
       />
+    </ActionPanel.Section>
+  );
+}
+
+function ForkActions({ entry, ctl }: ActionContext) {
+  if (entry.kind !== "repo" || entry.error) return null;
+  const repo = entry;
+  const config = getConfig();
+  const fork = repo.fork;
+
+  const syncOne = () =>
+    withToast(`Syncing ${repo.name} from upstream…`, async () => {
+      const result = await syncForkRepo(repo);
+      if (!result.ok) throw new Error(result.error);
+      await ctl.reconcile(repo.fullPath);
+      return result.skipped ? `Skipped: ${result.skipped}` : "Fast-forwarded onto upstream";
+    });
+
+  const push = async () => {
+    const confirmed = await confirmAlert({
+      title: "Push to Origin",
+      message: describeTransition(repo.relativePath, repo.origin?.fetchUrl ?? "—", "Push all branches and tags."),
+      primaryAction: { title: "Push" },
+    });
+    if (!confirmed) return;
+    await withToast(`Pushing ${repo.name}…`, async () => {
+      try {
+        await pushToOrigin(repo);
+      } catch (error) {
+        if (error instanceof ForkPushError) {
+          const createUrl = createRepoUrl(error.targetUrl);
+          throw new OperationFailure(
+            error.message,
+            createUrl ? { title: "Create the Repository", onAction: () => open(createUrl) } : undefined,
+          );
+        }
+        throw error;
+      }
+      await ctl.reconcile(repo.fullPath);
+      return "Pushed";
+    });
+  };
+
+  const upstreamWebUrl = fork && webUrlFor(fork.url);
+
+  return (
+    <ActionPanel.Section title="Fork">
+      <Action.Push
+        title="Fork to…"
+        icon={Icon.NewDocument}
+        shortcut={{ modifiers: ["cmd", "shift"], key: "f" }}
+        target={<ForkView repo={repo} ctl={ctl} />}
+      />
+      {fork && (
+        <Action
+          title="Sync from Upstream"
+          icon={Icon.ArrowClockwise}
+          shortcut={{ modifiers: ["opt"], key: "u" }}
+          onAction={syncOne}
+        />
+      )}
+      {fork && (
+        <Action
+          title="Sync All Forks from Upstream"
+          icon={Icon.ArrowClockwise}
+          shortcut={{ modifiers: ["opt", "shift"], key: "u" }}
+          onAction={bulkAction(ctl, "Syncing all forks…", syncForkRepo, (candidate) => !!candidate.fork)}
+        />
+      )}
+      {!fork && (
+        <Action.Push
+          title="Add Upstream Remote"
+          icon={Icon.Link}
+          target={
+            <RemoteForm
+              repoPath={repo.fullPath}
+              initialName={config.upstreamRemoteName}
+              initialUrl={upstreamCandidates(repo, ctl.index?.entries ?? [])[0]}
+              onDone={() => ctl.reconcile(repo.fullPath)}
+            />
+          }
+        />
+      )}
+      {fork && repo.origin && <Action title="Push to Origin" icon={Icon.Upload} onAction={push} />}
+      {upstreamWebUrl && <Action.OpenInBrowser title="Open Upstream on Remote Host" url={upstreamWebUrl} />}
+      {fork && <Action.CopyToClipboard title="Copy Upstream URL" content={fork.url} />}
     </ActionPanel.Section>
   );
 }
@@ -409,6 +509,7 @@ export function RepoActions(props: ActionContext) {
       <CopyActions {...props} />
       <SyncActions {...props} />
       <RemoteActions {...props} />
+      <ForkActions {...props} />
       <StorageActions {...props} />
       <IndexActions {...props} />
     </ActionPanel>
