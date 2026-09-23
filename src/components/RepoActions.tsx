@@ -31,7 +31,7 @@ import {
 import { convertProtocol, expectedOriginFor, protocolOf, relativePathForUrl, webUrlFor } from "../lib/remotes";
 import { openInTerminal } from "../lib/terminal";
 import type { OffloadedRepo, Protocol, Repo, RepoEntry } from "../lib/types";
-import { errorMessage, formatBytes } from "../lib/util";
+import { describeTransition, errorMessage, formatBytes } from "../lib/util";
 import { RemotesView } from "./RemotesView";
 
 interface ActionContext {
@@ -208,7 +208,9 @@ function RemoteActions({ entry, ctl }: ActionContext) {
     const isAdd = !repo.origin;
     const confirmed = await confirmAlert({
       title: isAdd ? "Add Origin Remote" : "Fix Origin Remote",
-      message: isAdd ? `Set origin to\n${fixUrl}` : `Change origin from\n${repo.origin?.fetchUrl}\nto\n${fixUrl}`,
+      message: isAdd
+        ? `Set the origin of ${repo.relativePath} to\n\n${fixUrl}`
+        : describeTransition(repo.origin?.fetchUrl ?? "—", fixUrl, `Origin of ${repo.relativePath}`),
       primaryAction: { title: isAdd ? "Add Origin" : "Fix Origin" },
     });
     if (!confirmed) return;
@@ -224,8 +226,8 @@ function RemoteActions({ entry, ctl }: ActionContext) {
     const targetRel = relativePathForUrl(repo.origin.fetchUrl);
     if (!targetRel) return;
     const confirmed = await confirmAlert({
-      title: "Relocate Repository",
-      message: `Move the folder to match its origin:\n${repo.relativePath} → ${targetRel}`,
+      title: "Relocate Folder",
+      message: describeTransition(repo.relativePath, targetRel, "Move the folder to match its origin."),
       primaryAction: { title: "Move Folder" },
     });
     if (!confirmed) return;

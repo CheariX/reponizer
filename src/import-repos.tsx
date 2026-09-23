@@ -57,9 +57,12 @@ export default function Command() {
       const verb = mode === "clone" ? "Clone" : "Create placeholders for";
       const confirmed = await confirmAlert({
         title: `${verb} ${pluralize(plan.missing.length, "missing repo")}?`,
-        message:
-          `${plan.present} already present · ${plan.localOnly.length} local-only (kept)` +
-          (plan.unresolvable.length > 0 ? ` · ${plan.unresolvable.length} skipped (no origin URL)` : ""),
+        // One fact per line: alerts centre their text, so a single "·"-joined line wraps badly.
+        message: [
+          `${plan.present} already present`,
+          `${plan.localOnly.length} local-only (kept)`,
+          ...(plan.unresolvable.length > 0 ? [`${plan.unresolvable.length} skipped (no origin URL)`] : []),
+        ].join("\n"),
         primaryAction: { title: verb, style: Alert.ActionStyle.Default },
       });
       if (!confirmed) {
