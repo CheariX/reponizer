@@ -20,6 +20,10 @@ type ExtensionPreferences = {
   "hostAliases"?: string,
   /** Host-Only Comparison - Comma-separated hosts (alias or real host) whose repos are audited by host only — the folder path below the host may differ from the remote path (e.g. Overleaf’s opaque project IDs). */
   "hostOnlyHosts"?: string,
+  /** Upstream Remote - Name of the remote that marks a repository as a fork and is used by “Sync from Upstream”. */
+  "upstreamRemoteName": string,
+  /** Default Fork Namespaces - Comma-separated host=namespace pairs preselected when forking, e.g. “gitlab.com=me/subgroup, github.com=MyUser”. Switching the host in the fork form picks that host’s namespace; hosts without an entry start empty. */
+  "defaultForkNamespaces"?: string,
   /** Editor - Application used by the “Open in Editor” action. */
   "editorApp"?: import("@raycast/api").Application,
   /** Terminal - Application used by the “Open in Terminal” action. Terminal.app, iTerm2, kitty, Alacritty, WezTerm, Ghostty, and Warp all open in the repository folder. */

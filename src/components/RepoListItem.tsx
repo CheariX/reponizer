@@ -1,7 +1,7 @@
 import { Color, Icon, List } from "@raycast/api";
 import { protocolOf } from "../lib/remotes";
 import { totalChanges } from "../lib/status";
-import type { OffloadedRepo, RemoteCheckState, Repo, RepoEntry } from "../lib/types";
+import type { ForkInfo, OffloadedRepo, RemoteCheckState, Repo, RepoEntry } from "../lib/types";
 import { formatBytes, relativeTime } from "../lib/util";
 import type { RepoIndexController } from "../hooks/useRepoIndex";
 import { RepoActions } from "./RepoActions";
@@ -30,6 +30,15 @@ function repoAccessories(repo: Repo): List.Item.Accessory[] {
     accessories.push({
       icon: { source: Icon.CopyClipboard, tintColor: Color.Purple },
       tooltip: `Same origin as ${repo.duplicateOf.join(", ")}`,
+    });
+  }
+  if (repo.fork) {
+    accessories.push({ tag: { value: "fork", color: Color.Magenta }, tooltip: `Fork of ${repo.fork.url}` });
+  }
+  if (repo.fork?.behind && repo.fork.behind > 0) {
+    accessories.push({
+      tag: { value: `↓${repo.fork.behind} upstream`, color: Color.Orange },
+      tooltip: `${repo.fork.behind} commits behind ${repo.fork.ref}`,
     });
   }
   const status = repo.status;
@@ -72,6 +81,12 @@ function offloadedAccessories(entry: OffloadedRepo): List.Item.Accessory[] {
     accessories.push({ text: `was ${formatBytes(entry.lastKnownSizeBytes)}`, tooltip: "Size before offloading" });
   }
   return accessories;
+}
+
+function forkUpstreamText(fork: ForkInfo): string {
+  if (!fork.ref) return "not fetched yet";
+  if (fork.ahead === undefined || fork.behind === undefined) return fork.ref;
+  return `${fork.ref} · ${fork.ahead} ahead · ${fork.behind} behind`;
 }
 
 function RepoDetail({ entry }: { entry: RepoEntry }) {
@@ -128,6 +143,12 @@ function RepoDetail({ entry }: { entry: RepoEntry }) {
           )}
           <Meta.Label title="Size" text={entry.sizeBytes !== undefined ? formatBytes(entry.sizeBytes) : "—"} />
           {entry.lastCommitAt && <Meta.Label title="Last Commit" text={relativeTime(entry.lastCommitAt)} />}
+          {entry.fork && (
+            <>
+              <Meta.Label title="Fork Of" text={entry.fork.relativePath ?? entry.fork.url} />
+              <Meta.Label title="Upstream Sync" text={forkUpstreamText(entry.fork)} />
+            </>
+          )}
           <Meta.Separator />
           {entry.remotes.length === 0 && <Meta.Label title="Remotes" text="none" />}
           {entry.remotes.map((remote) => (

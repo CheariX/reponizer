@@ -24,6 +24,8 @@ function FilterDropdown({
         <List.Dropdown.Item title="Remote Issues" value="remote-issues" icon={Icon.Globe} />
         <List.Dropdown.Item title="Uncommitted Changes" value="dirty" icon={Icon.Pencil} />
         <List.Dropdown.Item title="Ahead / Behind" value="unsynced" icon={Icon.ArrowClockwise} />
+        <List.Dropdown.Item title="Forks" value="forks" icon={Icon.Duplicate} />
+        <List.Dropdown.Item title="Forks Behind Upstream" value="fork-behind" icon={Icon.ArrowDown} />
         <List.Dropdown.Item title="Offloaded" value="offloaded" icon={Icon.Cloud} />
       </List.Dropdown.Section>
       <List.Dropdown.Section title="Hosts">

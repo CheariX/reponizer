@@ -30,13 +30,16 @@ import { errorMessage } from "../lib/util";
 interface RemoteFormProps {
   repoPath: string;
   existing?: RemoteInfo;
+  /** Prefill for the add case, e.g. the upstream remote name and a guessed source URL. */
+  initialName?: string;
+  initialUrl?: string;
   onDone: () => Promise<void>;
 }
 
-function RemoteForm({ repoPath, existing, onDone }: RemoteFormProps) {
+export function RemoteForm({ repoPath, existing, initialName, initialUrl, onDone }: RemoteFormProps) {
   const { pop } = useNavigation();
-  const [name, setName] = useState(existing?.name ?? "");
-  const [url, setUrl] = useState(existing?.fetchUrl ?? "");
+  const [name, setName] = useState(existing?.name ?? initialName ?? "");
+  const [url, setUrl] = useState(existing?.fetchUrl ?? initialUrl ?? "");
   const [nameError, setNameError] = useState<string>();
   const [urlError, setUrlError] = useState<string>();
 

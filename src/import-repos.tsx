@@ -16,11 +16,36 @@ import { useState } from "react";
 import { rebuildIndex } from "./lib/cache";
 import { getConfig } from "./lib/config";
 import { ExportFile, loadSnapshot, parseExportFile, planImport } from "./lib/exportImport";
+import { git } from "./lib/git";
 import { writeOffloadPlaceholder } from "./lib/offload";
 import { cloneRepo, planClone } from "./lib/ops";
+import { parseRemoteUrl } from "./lib/remotes";
+import type { RemoteInfo } from "./lib/types";
 import { errorMessage, mapConcurrent, pluralize } from "./lib/util";
 
 type Mode = "clone" | "placeholders";
+
+/**
+ * Re-create the extra remotes (e.g. “upstream” on a fork) recorded in the export.
+ * The export may come from another machine, so its contents are untrusted: anything
+ * passed to git argv must parse as a URL and must not start with "-" (argument injection).
+ * Individual failures are swallowed — a missing extra remote must not fail the import.
+ */
+async function restoreExtraRemotes(destination: string, remotes: RemoteInfo[] | undefined): Promise<void> {
+  for (const remote of remotes ?? []) {
+    if (
+      typeof remote?.name !== "string" ||
+      remote.name === "origin" ||
+      !/^[A-Za-z0-9][\w.-]*$/.test(remote.name) ||
+      typeof remote?.fetchUrl !== "string" ||
+      remote.fetchUrl.startsWith("-") ||
+      parseRemoteUrl(remote.fetchUrl) === undefined
+    ) {
+      continue;
+    }
+    await git(destination, ["remote", "add", remote.name, remote.fetchUrl]).catch(() => undefined);
+  }
+}
 
 export default function Command() {
   const config = getConfig();
@@ -57,9 +82,12 @@ export default function Command() {
       const verb = mode === "clone" ? "Clone" : "Create placeholders for";
       const confirmed = await confirmAlert({
         title: `${verb} ${pluralize(plan.missing.length, "missing repo")}?`,
-        message:
-          `${plan.present} already present · ${plan.localOnly.length} local-only (kept)` +
-          (plan.unresolvable.length > 0 ? ` · ${plan.unresolvable.length} skipped (no origin URL)` : ""),
+        // One fact per line: alerts centre their text, so a single "·"-joined line wraps badly.
+        message: [
+          `${plan.present} already present`,
+          `${plan.localOnly.length} local-only (kept)`,
+          ...(plan.unresolvable.length > 0 ? [`${plan.unresolvable.length} skipped (no origin URL)`] : []),
+        ].join("\n"),
         primaryAction: { title: verb, style: Alert.ActionStyle.Default },
       });
       if (!confirmed) {
@@ -77,7 +105,9 @@ export default function Command() {
             const clonePlan = planClone(config.root, repo.origin!, config.defaultProtocol);
             if (!clonePlan) throw new Error(`unparseable origin URL: ${repo.origin}`);
             // Preserve the exported location even if it differs from what the URL implies.
-            await cloneRepo({ ...clonePlan, destination: path.join(config.root, repo.path), relativePath: repo.path });
+            const destination = path.join(config.root, repo.path);
+            await cloneRepo({ ...clonePlan, destination, relativePath: repo.path });
+            await restoreExtraRemotes(destination, repo.remotes);
           }
         } catch (error) {
           failures.push(`${repo.path}: ${errorMessage(error)}`);
