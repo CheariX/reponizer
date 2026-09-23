@@ -223,8 +223,8 @@ function ForkActions({ entry, ctl }: ActionContext) {
 
   const push = async () => {
     const confirmed = await confirmAlert({
-      title: "Push to Origin",
-      message: describeTransition(repo.relativePath, repo.origin?.fetchUrl ?? "—", "Push all branches and tags."),
+      title: "Push All Branches and Tags to Origin",
+      message: describeTransition(repo.relativePath, repo.origin?.fetchUrl ?? "—"),
       primaryAction: { title: "Push" },
     });
     if (!confirmed) return;
@@ -308,9 +308,7 @@ function RemoteActions({ entry, ctl }: ActionContext) {
     const isAdd = !repo.origin;
     const confirmed = await confirmAlert({
       title: isAdd ? "Add Origin Remote" : "Fix Origin Remote",
-      message: isAdd
-        ? `Set the origin of ${repo.relativePath} to\n\n${fixUrl}`
-        : describeTransition(repo.origin?.fetchUrl ?? "—", fixUrl, `Origin of ${repo.relativePath}`),
+      message: isAdd ? fixUrl : describeTransition(repo.origin?.fetchUrl ?? "—", fixUrl),
       primaryAction: { title: isAdd ? "Add Origin" : "Fix Origin" },
     });
     if (!confirmed) return;
@@ -326,8 +324,8 @@ function RemoteActions({ entry, ctl }: ActionContext) {
     const targetRel = relativePathForUrl(repo.origin.fetchUrl);
     if (!targetRel) return;
     const confirmed = await confirmAlert({
-      title: "Relocate Folder",
-      message: describeTransition(repo.relativePath, targetRel, "Move the folder to match its origin."),
+      title: "Move Folder to Match Origin",
+      message: describeTransition(repo.relativePath, targetRel),
       primaryAction: { title: "Move Folder" },
     });
     if (!confirmed) return;

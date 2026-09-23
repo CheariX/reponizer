@@ -64,16 +64,11 @@ export function ForkView({ repo, ctl }: { repo: Repo; ctl: RepoIndexController }
 
   const fate = keepOriginal ? `Stays at ${repo.relativePath}` : `Moves from ${repo.relativePath}`;
 
-  // The form lists the URLs as labelled rows; the alert only takes one centred string, so it
-  // confirms the move itself and leaves the details to the form.
+  // The form lists the URLs as labelled rows; the alert only takes one short centred string (the
+  // title already says copy vs. move), so it confirms the paths and leaves the details to the form.
   const summary = () => {
     if (!plan) return "—";
-    const lead = keepOriginal ? "Fork into a second local copy." : "Move this local copy to the fork.";
-    const tail = [
-      keepOriginal ? `${repo.relativePath} stays where it is.` : "",
-      `Pushing ${PUSH_SCOPE_LABELS[pushScope]}.`,
-    ].filter(Boolean);
-    return `${describeTransition(repo.relativePath, plan.targetRelativePath, lead)}\n\n${tail.join("\n")}`;
+    return `${describeTransition(repo.relativePath, plan.targetRelativePath)}\n\nPushing ${PUSH_SCOPE_LABELS[pushScope]}.`;
   };
 
   const submit = async () => {
