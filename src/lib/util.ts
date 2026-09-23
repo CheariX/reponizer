@@ -50,6 +50,16 @@ export function errorMessage(error: unknown): string {
   return String(error);
 }
 
+/**
+ * A from/to transition for confirmation dialogs. Raycast centres alert text and offers no
+ * alignment control, so each value gets a short line of its own with the arrow between them —
+ * labelled prefixes would only push the values into an unreadable ragged block.
+ */
+export function describeTransition(from: string, to: string, lead?: string): string {
+  const body = `${from}\n↓\n${to}`;
+  return lead ? `${lead}\n\n${body}` : body;
+}
+
 export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
