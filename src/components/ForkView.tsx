@@ -19,7 +19,7 @@ import { ForkPushError, PushScope, createRepoUrl, executeFork, planFork } from "
 import { hostOf } from "../lib/filters";
 import { protocolOf } from "../lib/remotes";
 import type { Protocol, Repo } from "../lib/types";
-import { describeTransition, errorMessage } from "../lib/util";
+import { describeTransition, errorDetails, errorMessage } from "../lib/util";
 
 type ProtocolChoice = "as-default" | Protocol;
 
@@ -108,10 +108,10 @@ export function ForkView({ repo, ctl }: { repo: Repo; ctl: RepoIndexController }
         toast.title = "Fork pushed nowhere — does the target repository exist?";
         toast.primaryAction = createUrl
           ? { title: "Create the Repository", onAction: () => open(createUrl) }
-          : { title: "Copy Error", onAction: () => Clipboard.copy(errorMessage(error)) };
+          : { title: "Copy Error", onAction: () => Clipboard.copy(errorDetails(error)) };
       } else {
         toast.title = "Fork failed";
-        toast.primaryAction = { title: "Copy Error", onAction: () => Clipboard.copy(errorMessage(error)) };
+        toast.primaryAction = { title: "Copy Error", onAction: () => Clipboard.copy(errorDetails(error)) };
       }
     } finally {
       setIsWorking(false);

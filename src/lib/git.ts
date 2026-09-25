@@ -58,9 +58,22 @@ export async function git(cwd: string, args: string[], options: GitOptions = {})
   } catch (error) {
     const err = error as NodeJS.ErrnoException & { stderr?: string; killed?: boolean };
     const stderr = (err.stderr ?? "").trim();
-    const reason = err.killed ? "timed out" : stderr.split("\n")[0] || err.message;
+    const reason = err.killed ? "timed out" : stderrReason(stderr) || err.message;
     throw new GitError(`git ${args[0]}: ${reason}`, args, stderr);
   }
+}
+
+/**
+ * The line of stderr that explains a failure. Commands like clone print progress ("Cloning
+ * into …") to stderr before the actual error, so the first line is often just noise: prefer
+ * the last `fatal:`/`error:` line, else the last non-empty one.
+ */
+function stderrReason(stderr: string): string | undefined {
+  const lines = stderr
+    .split(/[\r\n]+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.findLast((line) => /^(fatal|error):/i.test(line)) ?? lines.at(-1);
 }
 
 /** Run an arbitrary command with the same environment fixes as git. */

@@ -33,7 +33,7 @@ import {
 import { convertProtocol, expectedOriginFor, protocolOf, relativePathForUrl, webUrlFor } from "../lib/remotes";
 import { openInTerminal } from "../lib/terminal";
 import type { OffloadedRepo, Protocol, Repo, RepoEntry } from "../lib/types";
-import { describeTransition, errorMessage, formatBytes } from "../lib/util";
+import { describeTransition, errorDetails, errorMessage, formatBytes } from "../lib/util";
 import { ForkView } from "./ForkView";
 import { RemoteForm, RemotesView } from "./RemotesView";
 
@@ -68,7 +68,7 @@ async function withToast(title: string, work: (toast: Toast) => Promise<string |
     toast.primaryAction =
       error instanceof OperationFailure && error.primaryAction
         ? error.primaryAction
-        : { title: "Copy Error", onAction: () => Clipboard.copy(errorMessage(error)) };
+        : { title: "Copy Error", onAction: () => Clipboard.copy(errorDetails(error)) };
   }
 }
 
