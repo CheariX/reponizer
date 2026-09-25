@@ -20,7 +20,10 @@ let cachedEnv: NodeJS.ProcessEnv | undefined;
 function gitEnv(): NodeJS.ProcessEnv {
   if (cachedEnv) return cachedEnv;
   const env: NodeJS.ProcessEnv = { ...process.env };
-  env.PATH = ["/usr/bin", "/usr/local/bin", "/opt/homebrew/bin", env.PATH].filter(Boolean).join(":");
+  // /bin matters too: git-lfs runs its helpers through `sh` looked up via PATH (and reports a
+  // missing sh as a missing "git-lfs"), while macOS only ships /bin/sh.
+  const dirs = ["/usr/bin", "/bin", "/usr/sbin", "/sbin", "/usr/local/bin", "/opt/homebrew/bin"];
+  env.PATH = [...new Set([...dirs, ...(env.PATH ?? "").split(":")].filter(Boolean))].join(":");
   env.GIT_TERMINAL_PROMPT = "0";
   env.GIT_SSH_COMMAND = env.GIT_SSH_COMMAND ?? "ssh -oBatchMode=yes";
   if (!env.SSH_AUTH_SOCK && fs.existsSync(ONE_PASSWORD_AGENT_SOCK)) {
