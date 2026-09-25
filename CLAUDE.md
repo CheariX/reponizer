@@ -75,7 +75,7 @@ src/
 - **Forking into a copy materializes tracking branches first**: in the `keepOriginal` variant the clone's `refs/remotes/origin/*` are turned into local branches *before* `git remote remove origin`, because removing the remote deletes the tracking refs and `push --all` would otherwise carry only the checked-out branch.
 - **Destructive actions** (trash, offload, delete remote, fix origin, relocate) always go through `confirmAlert`.
 - **No silent error swallowing**: git failures surface as `GitError` (its message carries the last `fatal:`/`error:` stderr line — clone prints progress to stderr first), toasts include a "Copy Error/Failures" action (`util.errorDetails` copies the full stderr), broken repos render with a red icon + tooltip.
-- **Raycast env quirk**: preferences are the runtime configuration surface (Raycast has no env vars); `git.ts` repairs `PATH` and `SSH_AUTH_SOCK` because Raycast doesn't run a login shell.
+- **Raycast env quirk**: preferences are the runtime configuration surface (Raycast has no env vars); `git.ts` repairs `PATH` and `SSH_AUTH_SOCK` because Raycast doesn't run a login shell. Raycast's `PATH` lacks `/bin`, where macOS keeps `sh`: git itself uses an absolute `/bin/sh`, but git-lfs looks `sh` up via `PATH` for its local-path transfer and reports the miss as `failed to find custom transfer command "git-lfs"`, so keep `/bin` in the repaired `PATH`.
 - Export schema is `reponizer/repos` v1: `{ path, origin?, remotes?, offloaded? }` per entry. Import never deletes; it clones missing repos (concurrency 2) or writes offload placeholders. Local-only repos are only reported.
 - All user-visible paths are POSIX-relative to the root (`github.com/owner/repo`); `group` (dirname) is the list section title.
 

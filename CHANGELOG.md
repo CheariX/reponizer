@@ -2,6 +2,7 @@
 
 ## [Git Error Fixes] - {PR_MERGE_DATE}
 
+- Fixed: cloning and forking repositories that use Git LFS no longer fail with "failed to find custom transfer command"
 - Fixed: git errors now show the actual failure instead of git's progress output, and "Copy Error" copies the full git output
 
 ## [Fork Support] - {PR_MERGE_DATE}
