@@ -1,5 +1,9 @@
 # Reponizer Changelog
 
+## [Git Error Fixes] - {PR_MERGE_DATE}
+
+- Fixed: git errors now show the actual failure instead of git's progress output, and "Copy Error" copies the full git output
+
 ## [Fork Support] - {PR_MERGE_DATE}
 
 - Fork awareness: repositories with an upstream remote are marked as forks, show how many commits they are behind their upstream, and can be filtered with the new "Forks" and "Forks Behind Upstream" filters

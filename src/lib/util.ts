@@ -1,3 +1,5 @@
+import { GitError } from "./git";
+
 /** Run `fn` over all items with at most `limit` concurrent executions, preserving order. */
 export async function mapConcurrent<T, R>(
   items: readonly T[],
@@ -48,6 +50,13 @@ export function relativeTime(iso: string): string {
 export function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
   return String(error);
+}
+
+/** What "Copy Error" puts on the clipboard: the message plus git's full stderr, which the toast shortens to one line. */
+export function errorDetails(error: unknown): string {
+  const message = errorMessage(error);
+  if (!(error instanceof GitError) || !error.stderr) return message;
+  return `${message}\n\n$ git ${error.args.join(" ")}\n${error.stderr}`;
 }
 
 /**
