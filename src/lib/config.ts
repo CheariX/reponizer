@@ -11,6 +11,7 @@ interface Preferences {
   hostAliases?: string;
   hostOnlyHosts?: string;
   upstreamRemoteName?: string;
+  // Named before repository creation shared it; renaming the key would drop saved values.
   defaultForkNamespaces?: string;
   editorApp?: Application;
   terminalApp?: Application;
@@ -23,8 +24,8 @@ export interface Config {
   defaultProtocol: Protocol;
   /** Remote name that marks a repo as a fork, e.g. "upstream". */
   upstreamRemoteName: string;
-  /** Canonical (alias-space) host → default fork namespace below it, in preference order. */
-  defaultForkNamespaces: Map<string, string>;
+  /** Canonical (alias-space) host → default namespace below it (fork/create forms), in preference order. */
+  defaultNamespaces: Map<string, string>;
   editorApp?: Application;
   terminalApp?: Application;
 }
@@ -101,7 +102,7 @@ export function isSafePathSegments(value: string): boolean {
  * Parse `host=namespace` pairs. Unlike the host rules the value keeps its case —
  * lowercasing would mangle namespaces like "MyOrg/SubGroup".
  */
-function parseForkNamespaces(raw: string | undefined, rules: HostRules): Map<string, string> {
+function parseDefaultNamespaces(raw: string | undefined, rules: HostRules): Map<string, string> {
   const result = new Map<string, string>();
   for (const pair of (raw ?? "").split(",")) {
     const eq = pair.indexOf("=");
@@ -130,7 +131,7 @@ export function getConfig(): Config {
     networkConcurrency,
     defaultProtocol: prefs.defaultProtocol === "https" ? "https" : "ssh",
     upstreamRemoteName: HOST_TOKEN.test(upstreamName) ? upstreamName : DEFAULT_UPSTREAM_REMOTE,
-    defaultForkNamespaces: parseForkNamespaces(prefs.defaultForkNamespaces, getHostRules()),
+    defaultNamespaces: parseDefaultNamespaces(prefs.defaultForkNamespaces, getHostRules()),
     editorApp: prefs.editorApp,
     terminalApp: prefs.terminalApp,
   };

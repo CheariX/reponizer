@@ -16,6 +16,7 @@ Raycast extension for organizing a git-get style repository folder (`<root>/host
 src/
   search-repos.tsx      Main command: hierarchical list, search, filters, detail panel
   clone-repo.tsx        Clone form (URL → destination preview → clone)
+  create-repo.tsx       Create command: CreateRepoForm on the cached index (optional name argument)
   fetch-all.ts          no-view bulk fetch (thin wrapper over lib/bulkCommand)
   pull-all.ts           no-view bulk pull (fast-forward only)
   export-repos.ts       no-view export (Downloads file + clipboard + LocalStorage snapshot)
@@ -26,13 +27,16 @@ src/
     RepoActions.tsx     The full action panel (open/copy/sync/fork/remotes/storage/index)
     RemotesView.tsx     Manage-remotes sub-list + add/edit form (prefillable name/URL)
     ForkView.tsx        Fork form (host/namespace/name → plan preview → rewire, push, relocate)
+    CreateRepoForm.tsx  Create form shared by the command and the list action (⌘N); the caller's
+                        onCreated refreshes the index and navigates
+    TargetDropdownItems.tsx  Host/namespace dropdown items (function, not component — see Gotchas)
   hooks/
     useRepoIndex.ts     Cache-first index hook: instant render, background rescan
-    useForkTarget.ts    Host/namespace selection state + options from the structures under the root
+    useRepoTarget.ts    Host/namespace selection state + options from the structures under the root
   lib/
     types.ts            All shared types (Repo, OffloadedRepo, RepoIndex, RemoteCheck, ForkInfo, …)
     config.ts           Preferences → Config (root, depth, protocol, network concurrency, apps,
-                        upstreamRemoteName, defaultForkNamespaces — one default namespace per host)
+                        upstreamRemoteName, defaultNamespaces — one default namespace per host)
                         + host alias/host-only rules
     git.ts              execFile wrapper: PATH fix, GIT_TERMINAL_PROMPT=0, ssh BatchMode,
                         1Password SSH agent fallback, timeouts, GitError with stderr
@@ -45,9 +49,15 @@ src/
                         Alacritty/WezTerm/Ghostty need the cwd as launch args via `open -n --args`);
                         strips LANG/LC_* — `open` forwards env, Raycast's BCP-47 LC_ALL breaks shells
     cache.ts            Raycast Cache read/write + reconcile/refresh helpers
-    ops.ts              fetch/pull/clone/relocate/prune, bulk runner, result summaries
-    fork.ts             Fork detection (upstream remote + divergence), target planning,
-                        execution (rewire remotes, push, relocate/clone), ff-only upstream sync
+    ops.ts              fetch/pull/publish/clone/relocate/prune, bulk runner, result summaries
+    targets.ts          Where a new repository goes: known hosts/namespaces under the root, searchable
+                        dropdown options (targetOptions), initial host/namespace, planTarget
+                        (validated host/namespace/name → URL + path)
+    fork.ts             Fork detection (upstream remote + divergence), fork planning on top of
+                        planTarget, execution (rewire remotes, push, relocate/clone), ff-only upstream sync
+    create.ts           Repository creation: method per host (GitHub CLI vs. push-to-create),
+                        planCreate on top of planTarget, executeCreate (local init + empty commit →
+                        gh repo create → push) with rollback until the host has the repository
     offload.ts          Offload/restore/placeholder logic + safety checks
     exportImport.ts     Export schema, import planning, LocalStorage snapshot
     filters.ts          List filter predicates + attention reasons (shared with menu bar)
@@ -65,17 +75,19 @@ src/
 ## Key invariants & conventions
 
 - **Cache writes are serialized and merged against the freshest cached index** (`cache.patchFreshIndex`): every mutation (reconcile / refreshEntries / rebuild) patches what is currently in the cache, not the caller's snapshot — otherwise a slow bulk operation and a per-repo action would clobber each other. Route any new index mutation through it.
-- **Untrusted strings never reach git argv unchecked**: `parseRemoteUrl` rejects leading-dash inputs, `readOffloadFile` validates origin/remotes from placeholder files, clone URLs are passed behind `--`, and remote names must match `^[A-Za-z0-9][\w.-]*$`. Fork targets follow the same rule: `planFork` checks every path segment on its own via `config.isSafePathSegments`, because `coerceCloneUrl` only rejects a leading `-` on the whole string and `owner/-x` would otherwise reach git argv as a flag. Preference values that end up in argv (upstream remote name, fork namespaces) are validated with `config.HOST_TOKEN` — same regex, same reason. Keep these guards when adding git calls.
+- **Untrusted strings never reach git argv unchecked**: `parseRemoteUrl` rejects leading-dash inputs, `readOffloadFile` validates origin/remotes from placeholder files, clone URLs are passed behind `--`, and remote names must match `^[A-Za-z0-9][\w.-]*$`. Fork and create targets follow the same rule: `targets.planTarget` (behind `planFork` and `planCreate`, whose `repoPath` also becomes the `gh repo create` argument) checks every path segment on its own via `config.isSafePathSegments`, because `coerceCloneUrl` only rejects a leading `-` on the whole string and `owner/-x` would otherwise reach git argv as a flag. Preference values that end up in argv (upstream remote name, fork namespaces) are validated with `config.HOST_TOKEN` — same regex, same reason. Keep these guards when adding git calls.
 - **Remote comparison is protocol-agnostic and alias-aware**: `normalizeRemoteUrl` maps the host into canonical alias space (`config.getHostRules`, preference `hostAliases`, `alias=realhost` pairs), lowercases, and strips `.git`; only canonical host+path identity matters. Expected origin for `host/owner/repo` is derived in `remotes.expectedOriginFor`; the first segment may be a dotted hostname or a configured alias (anything else → `unstructured`). Hosts listed in the `hostOnlyHosts` preference (alias or real form) are compared by host identity only — `expectedOriginFor` returns `undefined` for them (no Fix Origin offered) and `checkRemotes` reports `ok`/`mismatch` from the origin host alone (Overleaf-style opaque repo paths).
 - **`RemoteCheck.state`** drives all "deviation" UI: `ok | mismatch | no-origin | no-remotes | unstructured | unknown`. Fixes offered: set origin to expected (preserving the current origin's protocol), or relocate the folder to match origin.
 - **Offload safety**: `offload.findUnsyncedState` fetches origin first, then blocks on uncommitted/untracked changes, stashes, and any branch that is ahead, upstream-less, or tracking a gone upstream. The working copy is renamed aside, the placeholder (`reponizer-offloaded.json`, schema `reponizer/offloaded`, includes origin + all remotes + branch + size) is written, then the copy is trashed; failures roll back. Restore refuses non-empty folders and re-creates the placeholder if the clone fails.
 - **Pull is always `--ff-only`** and skips dirty/detached/conflicted/upstream-less repos (`ops.pullRepo`). Never introduce merging pulls.
+- **"Publish Branch" is the one-branch push**: `ops.publishBranch` runs `push --set-upstream origin HEAD` and is offered only while `ops.hasUnpublishedBranch` holds (origin present, branch attached, has commits, no upstream). Unlike the fork's "Push to Origin" it never carries other branches or tags.
 - **"Sync from Upstream" is fast-forward only too** (`fork.syncForkRepo`: fetch the upstream remote, then `merge --ff-only <upstream-ref>`). It skips dirty/detached/conflicted repos, repos without a matching upstream branch, `behind === 0`, and anything with local commits ahead of the upstream ref. Never introduce a merging or rebasing variant.
-- **A fork push is never rolled back**: `fork.executeFork` rewires the remotes (origin → fork target, previous origin kept as the upstream remote) before pushing, and a failing push throws `ForkPushError` with everything left in place — the remotes stay rewired and, in the move variant, the folder stays at its old path. Hosts without push-to-create (GitHub; GitLab and Gitea create the project on first push) are the normal cause. The resulting `mismatch` is the deliberate, self-explaining intermediate state: the existing "Relocate Folder to Match Origin" action resolves it and "Push to Origin" (`fork.pushToOrigin`) is the retry, with `fork.createRepoUrl` pointing at the page for creating the repository by hand.
+- **Repository creation rolls back only until the host has the repository**: `create.executeCreate` sets up the local side first (`git init`, origin, `commit --allow-empty` — a push needs a commit, and the folder stays empty), then creates the remote. Any failure before the host has the repository removes what it created (the whole folder when it was new, only `.git` in a pre-existing empty one) and the form stays open for another attempt. After that nothing is undone: a failed initial push after `gh repo create` is the `push-failed` outcome, and "Publish Branch" is the retry. GitHub has no push-to-create, so `creationMethodFor` sends github.com (alias-aware) through `gh repo create`; every other host gets push-to-create. A missing gh (`ENOENT`) or a logged-out one (exit code 4, `gh help exit-codes`) is not an error but the `needs-remote` outcome: the local copy is kept and the toast opens the prefilled github.com/new page (`remotes.createRepoUrl`). A rejected push-to-create (`[rejected]`) means the name is taken; other refusals are explained in `remote:` lines, which `pushToCreate` surfaces instead of git's generic "Could not read from remote repository".
+- **A fork push is never rolled back**: `fork.executeFork` rewires the remotes (origin → fork target, previous origin kept as the upstream remote) before pushing, and a failing push throws `ForkPushError` with everything left in place — the remotes stay rewired and, in the move variant, the folder stays at its old path. Hosts without push-to-create (GitHub; GitLab and Gitea create the project on first push) are the normal cause. The resulting `mismatch` is the deliberate, self-explaining intermediate state: the existing "Relocate Folder to Match Origin" action resolves it and "Push to Origin" (`fork.pushToOrigin`) is the retry, with `remotes.createRepoUrl` pointing at the page for creating the repository by hand.
 - **Forking into a copy materializes tracking branches first**: in the `keepOriginal` variant the clone's `refs/remotes/origin/*` are turned into local branches *before* `git remote remove origin`, because removing the remote deletes the tracking refs and `push --all` would otherwise carry only the checked-out branch.
 - **Destructive actions** (trash, offload, delete remote, fix origin, relocate) always go through `confirmAlert`.
 - **No silent error swallowing**: git failures surface as `GitError` (its message carries the last `fatal:`/`error:` stderr line — clone prints progress to stderr first), toasts include a "Copy Error/Failures" action (`util.errorDetails` copies the full stderr), broken repos render with a red icon + tooltip.
-- **Raycast env quirk**: preferences are the runtime configuration surface (Raycast has no env vars); `git.ts` repairs `PATH` and `SSH_AUTH_SOCK` because Raycast doesn't run a login shell. Raycast's `PATH` lacks `/bin`, where macOS keeps `sh`: git itself uses an absolute `/bin/sh`, but git-lfs looks `sh` up via `PATH` for its local-path transfer and reports the miss as `failed to find custom transfer command "git-lfs"`, so keep `/bin` in the repaired `PATH`.
+- **Raycast env quirk**: preferences are the runtime configuration surface (Raycast has no env vars); `git.ts` repairs `PATH` and `SSH_AUTH_SOCK` because Raycast doesn't run a login shell. Raycast's `PATH` lacks `/bin`, where macOS keeps `sh`: git itself uses an absolute `/bin/sh`, but git-lfs looks `sh` up via `PATH` for its local-path transfer and reports the miss as `failed to find custom transfer command "git-lfs"`, so keep `/bin` in the repaired `PATH`. `gh` (Homebrew: `/opt/homebrew/bin` or `/usr/local/bin`) is only found through the same repaired `PATH`, so it runs via `git.run`.
 - Export schema is `reponizer/repos` v1: `{ path, origin?, remotes?, offloaded? }` per entry. Import never deletes; it clones missing repos (concurrency 2) or writes offload placeholders. Local-only repos are only reported.
 - All user-visible paths are POSIX-relative to the root (`github.com/owner/repo`); `group` (dirname) is the list section title.
 
@@ -85,6 +97,7 @@ src/
 - **New per-repo action**: add to the matching section component in `RepoActions.tsx`; use `withToast` + `ctl.reconcile(fullPath)` after mutating.
 - **New bulk operation**: implement an `(repo) => Promise<OpResult>` in `ops.ts` and reuse `runBulkCommand` / `runOnRepos`. Inside the action panel the helper is the module-level `bulkAction(ctl, title, op, select?)` in `RepoActions.tsx`; the optional selector narrows the run to a subset of the healthy repos ("Sync All Forks from Upstream" passes `(repo) => !!repo.fork`).
 - **New entry state on disk**: extend `scan.ts` detection, add a `kind` to `RepoEntry`, bump `CACHE_VERSION`.
+- **New creation method** (e.g. a host API with a token): add a `CreationMethod`, route hosts to it in `create.creationMethodFor`, and handle it in `executeCreate` before the push — keep the rollback boundary at "the host has the repository".
 - **New command**: add the manifest entry in `package.json` (name must match the `src/<name>.tsx?` file) plus the source file.
 
 ## Gotchas
@@ -93,7 +106,8 @@ src/
 - `git-url-parse`'s `full_name` includes GitLab subgroups (`group/sub/repo`); code must not assume exactly `owner/name`.
 - Offloaded placeholders make `cloneRepo` fail with a pointer to "Restore Local Copy" instead of cloning over the folder.
 - `confirmAlert` centres its message and has no alignment option, so dialogs keep lines short instead of labelling them: `util.describeTransition` puts a from/to pair on separate lines with the arrow between. Raycast also truncates the message after a few lines ("…"), so the explanatory sentence goes into the alert title, never as a lead line above the pair. Multi-fact strings joined with `·` or `→` wrap mid-path and are unreadable there; labelled key/value layout belongs in `Form.Description` rows (`ForkView`, clone form), which Raycast left-aligns.
-- Raycast `Form` children must be direct `Form.*` elements — a wrapper component rendering several fields is not accepted. Shared form logic therefore ships as a hook: `hooks/useForkTarget.ts` holds the host/namespace state plus the option lists, and each form (`ForkView`, the clone destination form) renders its own `Form.Dropdown`s from it.
+- Raycast's native dropdown filtering (`filtering`) breaks when the items change while the user searches, e.g. to offer the typed text as an item of its own. Searchable host/namespace dropdowns therefore pass `filtering={false}` and get pre-filtered items from `targets.targetOptions`: matches, then the typed value, then the current value — a controlled dropdown must always contain its value, and last it never takes the highlight (and the Enter key) from a match. Picking a value clears the query (`useRepoTarget`), since a leftover query would still filter the next time the dropdown opens.
+- Raycast `Form` children must be direct `Form.*` elements — a wrapper component rendering several fields is not accepted. Shared form logic therefore ships as a hook: `hooks/useRepoTarget.ts` holds the host/namespace state plus the option lists, and each form (`ForkView`, the clone destination form, `CreateRepoForm`) renders its own `Form.Dropdown`s from it.
 - The menu bar command runs on an `interval` and must stay cheap: it renders from the cache and only rescans on explicit "Rescan Now".
 - `ray lint` enforces Prettier (printWidth 120) and Raycast eslint rules; run `npm run fix-lint` before committing.
 

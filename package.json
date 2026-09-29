@@ -33,6 +33,21 @@
       ]
     },
     {
+      "name": "create-repo",
+      "title": "Create Repository",
+      "subtitle": "Reponizer",
+      "description": "Create a new repository on its host and an empty local copy in the folder structure.",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "name",
+          "type": "text",
+          "placeholder": "Repository Name",
+          "required": false
+        }
+      ]
+    },
+    {
       "name": "fetch-all",
       "title": "Fetch All Repositories",
       "subtitle": "Reponizer",
@@ -152,8 +167,8 @@
       "name": "defaultForkNamespaces",
       "type": "textfield",
       "required": false,
-      "title": "Default Fork Namespaces",
-      "description": "Comma-separated host=namespace pairs preselected when forking, e.g. “gitlab.com=me/subgroup, github.com=MyUser”. Switching the host in the fork form picks that host’s namespace; hosts without an entry start empty."
+      "title": "Default Namespaces",
+      "description": "Comma-separated host=namespace pairs preselected when forking or creating a repository, e.g. “gitlab.com=me/subgroup, github.com=MyUser”. Switching the host in a form picks that host’s namespace; hosts without an entry start empty."
     },
     {
       "name": "editorApp",

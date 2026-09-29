@@ -1,5 +1,8 @@
 export type Protocol = "ssh" | "https";
 
+/** Who can see a repository created on a host. */
+export type Visibility = "private" | "public";
+
 export interface RemoteInfo {
   name: string;
   fetchUrl: string;

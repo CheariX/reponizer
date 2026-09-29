@@ -1,11 +1,12 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { HOST_TOKEN, isSafePathSegments, type Config } from "./config";
+import type { Config } from "./config";
 import { git } from "./git";
 import { pruneEmptyParents, relocateRepo, type OpResult } from "./ops";
-import { coerceCloneUrl, normalizeRemoteUrl, parseRemoteUrl, relativePathForUrl } from "./remotes";
+import { normalizeRemoteUrl, relativePathForUrl } from "./remotes";
 import { isClean } from "./status";
-import type { ForkInfo, Protocol, RemoteInfo, Repo, RepoEntry } from "./types";
+import { planTarget, type TargetInput } from "./targets";
+import type { ForkInfo, RemoteInfo, Repo, RepoEntry } from "./types";
 import { errorMessage } from "./util";
 
 const NETWORK_TIMEOUT = 120_000;
@@ -98,55 +99,8 @@ export async function inspectFork(
 }
 
 // ---------------------------------------------------------------------------
-// Known structures (autocompletion sources)
+// Fork sources
 // ---------------------------------------------------------------------------
-
-/**
- * Namespaces already present under the root, grouped by host segment and stripped of it:
- * `github.com/owner/repo` and `gitlab.com/group/sub/repo` yield
- * `github.com → ["owner"]` and `gitlab.com → ["group", "group/sub"]`.
- */
-export function knownNamespaces(entries: RepoEntry[]): Map<string, string[]> {
-  const byHost = new Map<string, Set<string>>();
-  for (const entry of entries) {
-    const segments = entry.group.split("/").filter((segment) => segment && segment !== ".");
-    if (segments.length < 2) continue;
-    const [host, ...rest] = segments;
-    const namespaces = byHost.get(host) ?? new Set<string>();
-    for (let i = 1; i <= rest.length; i++) namespaces.add(rest.slice(0, i).join("/"));
-    byHost.set(host, namespaces);
-  }
-  return new Map([...byHost].map(([host, set]) => [host, [...set].sort()]));
-}
-
-/** Every host that can be offered as a fork target: seen under the root, aliased, or configured. */
-export function forkHostOptions(entries: RepoEntry[], config: Config, aliases: Iterable<string>): string[] {
-  const hosts = new Set<string>([
-    ...knownNamespaces(entries).keys(),
-    ...config.defaultForkNamespaces.keys(),
-    ...aliases,
-  ]);
-  return [...hosts].filter(Boolean).sort();
-}
-
-export interface ForkTarget {
-  host: string;
-  namespace: string;
-}
-
-/**
- * Host and namespace a fork form starts on: the source host when it has a configured default,
- * otherwise the first configured host, otherwise the source host with an empty namespace.
- */
-export function initialForkTarget(config: Config, sourceHost: string | undefined): ForkTarget {
-  const defaults = config.defaultForkNamespaces;
-  if (sourceHost && defaults.has(sourceHost)) {
-    return { host: sourceHost, namespace: defaults.get(sourceHost) ?? "" };
-  }
-  const first = defaults.entries().next();
-  if (!first.done) return { host: first.value[0], namespace: first.value[1] };
-  return { host: sourceHost ?? "", namespace: "" };
-}
 
 /** Repos elsewhere under the root with the same host and repo name — likely fork sources. */
 export function upstreamCandidates(repo: Repo, entries: RepoEntry[]): string[] {
@@ -187,37 +141,20 @@ export interface ForkPlan {
   pushScope: PushScope;
 }
 
-export interface ForkInput {
-  host: string;
-  namespace: string;
-  name: string;
-  protocol: Protocol;
+export interface ForkInput extends TargetInput {
   upstreamUrl?: string;
   keepOriginal?: boolean;
   pushScope?: PushScope;
 }
 
-/**
- * Resolve form input into a fork plan, or undefined when the target is incomplete or unusable.
- * Every path segment is guarded separately: coerceCloneUrl only rejects a leading dash on the
- * whole string, but "owner/-x" would still reach git argv as a flag.
- */
+/** Resolve form input into a fork plan, or undefined when the target is incomplete or unusable. */
 export function planFork(config: Config, input: ForkInput): ForkPlan | undefined {
-  const host = input.host.trim();
-  const namespace = input.namespace.trim().replace(/^\/+|\/+$/g, "");
-  const name = input.name.trim().replace(/\.git$/, "");
-  if (!host || !namespace || !name) return undefined;
-  if (!HOST_TOKEN.test(host) || !isSafePathSegments(namespace) || !HOST_TOKEN.test(name)) return undefined;
-
-  const targetUrl = coerceCloneUrl(`${host}/${namespace}/${name}`, input.protocol);
-  if (!targetUrl) return undefined;
-  const targetRelativePath = relativePathForUrl(targetUrl);
-  if (!targetRelativePath) return undefined;
-
+  const target = planTarget(config, input);
+  if (!target) return undefined;
   return {
-    targetRelativePath,
-    targetDestination: path.join(config.root, targetRelativePath),
-    targetUrl,
+    targetRelativePath: target.relativePath,
+    targetDestination: target.destination,
+    targetUrl: target.url,
     upstreamUrl: input.upstreamUrl,
     upstreamRemoteName: config.upstreamRemoteName,
     keepOriginal: input.keepOriginal ?? false,
@@ -238,17 +175,6 @@ export class ForkPushError extends Error {
     super(message);
     this.name = "ForkPushError";
   }
-}
-
-/**
- * Page where the repository can be created by hand, for hosts without push-to-create.
- * GitLab and Gitea create the project on first push; GitHub does not.
- */
-export function createRepoUrl(targetUrl: string): string | undefined {
-  const parsed = parseRemoteUrl(targetUrl);
-  if (!parsed) return undefined;
-  if (parsed.host.toLowerCase() === "github.com") return "https://github.com/new";
-  return `https://${parsed.host}/projects/new`;
 }
 
 async function remoteNames(fullPath: string): Promise<string[]> {
