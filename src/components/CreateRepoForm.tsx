@@ -146,8 +146,8 @@ export function CreateRepoForm({ entries, sourceHost, initialName, navigationTit
         title="Created By"
         text={
           viaGitHub
-            ? "The GitHub CLI (gh repo create), then the empty initial commit is pushed"
-            : "Pushing the empty initial commit — GitLab and Gitea create a private project on push"
+            ? "The GitHub CLI (gh repo create), else a push — if both fail, you create it on GitHub"
+            : "Pushing the empty initial commit (GitLab and Gitea create a private project) — if the host refuses, you create it there"
         }
       />
       {taken && <Form.Description title="⚠︎" text="A repository already exists at that location." />}
@@ -163,11 +163,22 @@ function showOutcome(toast: Toast, plan: CreatePlan, outcome: CreateOutcome): vo
       toast.message = plan.relativePath;
       return;
     case "needs-remote": {
-      const { createUrl } = outcome;
+      const { createUrl, cliProblem, pushError } = outcome;
+      // On GitHub the push is only the fallback and bound to fail; why gh did not work is the news.
+      const reason = (cliProblem ?? errorMessage(pushError)).replace(/\.?$/, ".");
+      const copyError: Toast.ActionOptions = {
+        title: "Copy Error",
+        onAction: () => Clipboard.copy([cliProblem, errorDetails(pushError)].filter(Boolean).join("\n\n")),
+      };
       toast.style = Toast.Style.Failure;
-      toast.title = "Created locally, but not on GitHub";
-      toast.message = `${outcome.reason} Create it on GitHub, then use “Publish Branch”.`;
-      if (createUrl) toast.primaryAction = { title: "Create on GitHub", onAction: () => open(createUrl) };
+      toast.title = `Created locally, but not on ${plan.remoteHost}`;
+      toast.message = `${reason} Create the repository there, then use “Publish Branch”.`;
+      if (createUrl) {
+        toast.primaryAction = { title: "Create the Repository", onAction: () => open(createUrl) };
+        toast.secondaryAction = copyError;
+      } else {
+        toast.primaryAction = copyError;
+      }
       return;
     }
     case "push-failed": {

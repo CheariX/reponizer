@@ -14,8 +14,10 @@ const COMMIT_TIMEOUT = 120_000;
 const GH_EXIT_AUTH_REQUIRED = 4;
 
 /**
- * How the repository comes into existence on the host. GitHub has no push-to-create, so the
- * GitHub CLI creates it there; GitLab and Gitea create the project when the first push arrives.
+ * How Reponizer first tries to create the repository on the host. The default is push-to-create
+ * (GitLab and Gitea create the project when the first push arrives). GitHub has no push-to-create,
+ * so it tries the GitHub CLI first and only then the push. Whatever fails last, the user creates the
+ * repository by hand.
  */
 export type CreationMethod = "github-cli" | "push";
 
@@ -34,22 +36,30 @@ export interface CreateInput extends TargetInput {
 }
 
 export interface CreatePlan extends PlannedTarget {
+  /** Real host the repository lives on, e.g. "github.com" (never a folder alias). */
+  remoteHost: string;
   /** Repository path on the host, e.g. "owner/name" or "group/sub/name". */
   repoPath: string;
   method: CreationMethod;
-  /** Only the GitHub CLI can choose; push-to-create hosts always start projects private. */
+  /** Only GitHub lets Reponizer choose (CLI or prefilled page); push-to-create starts projects private. */
   visibility: Visibility;
 }
 
 /** Resolve form input into a creation plan, or undefined when the target is incomplete or unusable. */
 export function planCreate(config: Config, input: CreateInput): CreatePlan | undefined {
   const target = planTarget(config, input);
-  const repoPath = target && parseRemoteUrl(target.url)?.path;
-  if (!target || !repoPath) return undefined;
+  const parsed = target && parseRemoteUrl(target.url);
+  if (!target || !parsed) return undefined;
   const method = creationMethodFor(input.host);
   // A GitHub owner is a single user or organization — there are no subgroups.
-  if (method === "github-cli" && repoPath.split("/").length !== 2) return undefined;
-  return { ...target, repoPath, method, visibility: method === "github-cli" ? input.visibility : "private" };
+  if (method === "github-cli" && parsed.path.split("/").length !== 2) return undefined;
+  return {
+    ...target,
+    remoteHost: parsed.host.toLowerCase(),
+    repoPath: parsed.path,
+    method,
+    visibility: method === "github-cli" ? input.visibility : "private",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -59,16 +69,20 @@ export function planCreate(config: Config, input: CreateInput): CreatePlan | und
 export type CreateOutcome =
   /** The host has the repository with the initial commit, and the local branch tracks it. */
   | { state: "published" }
-  /** The GitHub CLI is missing or logged out: the local copy is ready, the host still lacks the repository. */
-  | { state: "needs-remote"; reason: string; createUrl?: string }
-  /** The host has the repository, but the initial push failed — "Publish Branch" retries it. */
+  /**
+   * Nothing created the repository on the host: the local copy is ready, the user creates the
+   * repository by hand (`createUrl`) and "Publish Branch" finishes the job.
+   */
+  | { state: "needs-remote"; pushError: unknown; cliProblem?: string; createUrl?: string }
+  /** The GitHub CLI created the repository, but the initial push failed — "Publish Branch" retries it. */
   | { state: "push-failed"; error: unknown };
 
 /**
  * Create the repository on the host plus an empty local copy whose origin points at it.
- * The local side goes first: until the host has the repository, the new folder holds nothing but
- * an empty commit, so every failure up to then removes it again and the form can be resubmitted.
- * Once the repository exists on the host, nothing is rolled back.
+ * The local side goes first and is removed again when it fails. From then on the local copy stays:
+ * a host that refuses the push leaves it waiting for the repository to be created by hand. The one
+ * exception is a push rejected over existing history — the name is taken, so the folder is removed
+ * and the form can be resubmitted with another name.
  */
 export async function executeCreate(
   root: string,
@@ -79,34 +93,47 @@ export async function executeCreate(
   const discardLocal = () => discardLocalRepo(root, plan.destination, folderIsNew);
 
   onStep?.("Initializing the local repository…");
-  await undoOnFailure(() => initLocalRepo(plan), discardLocal);
+  try {
+    await initLocalRepo(plan);
+  } catch (error) {
+    await discardLocal();
+    throw error;
+  }
 
+  let cliProblem: string | undefined;
   if (plan.method === "github-cli") {
     onStep?.("Creating the repository on GitHub…");
-    const unavailable = await undoOnFailure(() => createWithGitHubCli(plan), discardLocal);
-    if (unavailable) {
-      return { state: "needs-remote", reason: unavailable, createUrl: createRepoUrl(plan.url, plan.visibility) };
+    cliProblem = await createWithGitHubCli(plan);
+    if (!cliProblem) {
+      onStep?.("Pushing the initial commit…");
+      try {
+        await publishBranch(plan.destination);
+      } catch (error) {
+        return { state: "push-failed", error };
+      }
+      return { state: "published" };
     }
-    onStep?.("Pushing the initial commit…");
-    try {
-      await publishBranch(plan.destination);
-    } catch (error) {
-      return { state: "push-failed", error };
-    }
-    return { state: "published" };
   }
 
   onStep?.("Pushing the initial commit…");
-  await undoOnFailure(() => pushToCreate(plan), discardLocal);
-  return { state: "published" };
-}
-
-async function undoOnFailure<T>(work: () => Promise<T>, undo: () => Promise<void>): Promise<T> {
   try {
-    return await work();
+    await publishBranch(plan.destination);
+    return { state: "published" };
   } catch (error) {
-    await undo();
-    throw error;
+    if (error instanceof GitError && /\[rejected\]/.test(error.stderr)) {
+      await discardLocal();
+      throw new GitError(
+        `${plan.relativePath} already exists on the host with other history`,
+        error.args,
+        error.stderr,
+      );
+    }
+    return {
+      state: "needs-remote",
+      pushError: explainPushFailure(error),
+      cliProblem,
+      createUrl: createRepoUrl(plan.url, plan.visibility),
+    };
   }
 }
 
@@ -132,9 +159,9 @@ async function discardLocalRepo(root: string, destination: string, folderIsNew: 
 }
 
 /**
- * Create the repository with `gh repo create`, reusing the user's gh login. A missing or logged-out
- * gh is the documented fallback case, so it returns the reason instead of throwing; any other
- * failure (e.g. the name is taken) throws.
+ * Create the repository with `gh repo create`, reusing the user's gh login. Returns undefined on
+ * success, otherwise why gh did not create it — never throws, since every gh failure (not installed,
+ * logged out, name taken, …) falls through to the push.
  */
 async function createWithGitHubCli(plan: CreatePlan): Promise<string | undefined> {
   try {
@@ -149,28 +176,18 @@ async function createWithGitHubCli(plan: CreatePlan): Promise<string | undefined
       .trim()
       .split(/\s*\n\s*/)
       .join(" ");
-    throw new Error(`gh repo create: ${err.killed ? "timed out" : stderr || err.message}`);
+    return `gh repo create: ${err.killed ? "timed out" : stderr || err.message}`;
   }
 }
 
-/** Push-to-create: the host creates the project from the first push it receives. */
-async function pushToCreate(plan: CreatePlan): Promise<void> {
-  try {
-    await publishBranch(plan.destination);
-  } catch (error) {
-    if (!(error instanceof GitError)) throw error;
-    if (/\[rejected\]/.test(error.stderr)) {
-      throw new GitError(
-        `${plan.relativePath} already exists on the host with other history`,
-        error.args,
-        error.stderr,
-      );
-    }
-    // Hosts explain refusals (no permission, push-to-create disabled) in "remote:" lines, which
-    // git follows with a generic "Could not read from remote repository".
-    const explanation = remoteMessage(error.stderr);
-    throw explanation ? new GitError(`git push: ${explanation}`, error.args, error.stderr) : error;
-  }
+/**
+ * Hosts explain a refused push-to-create (no permission, feature disabled) in "remote:" lines, which
+ * git follows with a generic "Could not read from remote repository" — surface the explanation instead.
+ */
+function explainPushFailure(error: unknown): unknown {
+  if (!(error instanceof GitError)) return error;
+  const explanation = remoteMessage(error.stderr);
+  return explanation ? new GitError(`git push: ${explanation}`, error.args, error.stderr) : error;
 }
 
 function remoteMessage(stderr: string): string | undefined {
