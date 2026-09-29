@@ -11,13 +11,12 @@ import {
   showToast,
 } from "@raycast/api";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useForkTarget } from "./hooks/useForkTarget";
+import { useRepoTarget } from "./hooks/useRepoTarget";
 import { readCachedIndex, reconcilePath } from "./lib/cache";
 import { getConfig } from "./lib/config";
 import {
   ForkPushError,
   PushScope,
-  createRepoUrl,
   currentBranch,
   materializeTrackingBranches,
   planFork,
@@ -25,7 +24,7 @@ import {
   rewireForFork,
 } from "./lib/fork";
 import { cloneRepo, planClone } from "./lib/ops";
-import { protocolOf } from "./lib/remotes";
+import { createRepoUrl, protocolOf } from "./lib/remotes";
 import type { Protocol } from "./lib/types";
 import { errorMessage } from "./lib/util";
 
@@ -60,7 +59,7 @@ export default function Command(props: LaunchProps<{ arguments: { url?: string }
   );
 
   const sourceHost = plan?.relativePath.split("/")[0];
-  const target = useForkTarget(entries, sourceHost);
+  const target = useRepoTarget(entries, sourceHost);
   const hostTouched = useRef(false);
   useEffect(() => {
     // The pasted URL decides the default fork target until the user overrides the host.

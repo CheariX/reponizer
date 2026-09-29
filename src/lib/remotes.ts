@@ -82,6 +82,17 @@ export function webUrlFor(url: string): string | undefined {
   return `https://${parsed.host}/${parsed.path}`;
 }
 
+/**
+ * Page where the repository can be created by hand, for hosts without push-to-create.
+ * GitLab and Gitea create the project on first push; GitHub does not.
+ */
+export function createRepoUrl(targetUrl: string): string | undefined {
+  const parsed = parseRemoteUrl(targetUrl);
+  if (!parsed) return undefined;
+  if (parsed.host.toLowerCase() === "github.com") return "https://github.com/new";
+  return `https://${parsed.host}/projects/new`;
+}
+
 /** Relative install path (host/owner/repo, alias-space host) a remote URL maps to inside the repos root. */
 export function relativePathForUrl(url: string): string | undefined {
   const parsed = parseRemoteUrl(url);

@@ -1,9 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { getConfig, getHostRules } from "../lib/config";
-import { forkHostOptions, initialForkTarget, knownNamespaces } from "../lib/fork";
+import { initialTarget, knownNamespaces, targetHostOptions } from "../lib/targets";
 import type { RepoEntry } from "../lib/types";
 
-export interface ForkTargetState {
+export interface RepoTargetState {
   host: string;
   namespace: string;
   /** Selecting a host always re-applies that host's default namespace (or clears it). */
@@ -18,28 +18,28 @@ export interface ForkTargetState {
 }
 
 /**
- * Shared state of the host/namespace pair in the fork forms. Options come from the structures
- * already present under the root, so GitLab subgroups are offered without extra configuration.
+ * Shared state of the host/namespace pair in the forms that pick where a repository goes. Options come
+ * from the structures already present under the root, so GitLab subgroups are offered without extra configuration.
  */
-export function useForkTarget(entries: RepoEntry[], sourceHost?: string): ForkTargetState {
+export function useRepoTarget(entries: RepoEntry[], sourceHost?: string): RepoTargetState {
   const config = useRef(getConfig()).current;
-  const initial = useRef(initialForkTarget(config, sourceHost)).current;
+  const initial = useRef(initialTarget(config, sourceHost)).current;
   const [host, setHostState] = useState(initial.host);
   const [namespace, setNamespace] = useState(initial.namespace);
-  const [query, setQuery] = useState("");
+  const [namespaceQuery, setNamespaceQuery] = useState("");
 
   const setHost = useCallback(
     (next: string) => {
       setHostState(next);
       // A namespace only ever belongs to one host, so never carry it across.
-      setNamespace(config.defaultForkNamespaces.get(next) ?? "");
+      setNamespace(config.defaultNamespaces.get(next) ?? "");
     },
     [config],
   );
 
   const reset = useCallback(
     (nextSourceHost?: string) => {
-      const target = initialForkTarget(config, nextSourceHost);
+      const target = initialTarget(config, nextSourceHost);
       setHostState(target.host);
       setNamespace(target.namespace);
     },
@@ -49,7 +49,7 @@ export function useForkTarget(entries: RepoEntry[], sourceHost?: string): ForkTa
   const namespacesByHost = useMemo(() => knownNamespaces(entries), [entries]);
 
   const hosts = useMemo(() => {
-    const options = forkHostOptions(entries, config, getHostRules().aliasToReal.keys());
+    const options = targetHostOptions(entries, config, getHostRules().aliasToReal.keys());
     for (const extra of [sourceHost, host]) {
       if (extra && !options.includes(extra)) options.push(extra);
     }
@@ -58,12 +58,12 @@ export function useForkTarget(entries: RepoEntry[], sourceHost?: string): ForkTa
 
   const namespaceOptions = useMemo(() => {
     const options = [...(namespacesByHost.get(host) ?? [])];
-    const typed = query.trim().replace(/^\/+|\/+$/g, "");
+    const typed = namespaceQuery.trim().replace(/^\/+|\/+$/g, "");
     for (const extra of [namespace, typed]) {
       if (extra && !options.includes(extra)) options.push(extra);
     }
     return options;
-  }, [namespacesByHost, host, namespace, query]);
+  }, [namespacesByHost, host, namespace, namespaceQuery]);
 
-  return { host, namespace, setHost, setNamespace, setNamespaceQuery: setQuery, reset, hosts, namespaceOptions };
+  return { host, namespace, setHost, setNamespace, setNamespaceQuery, reset, hosts, namespaceOptions };
 }
