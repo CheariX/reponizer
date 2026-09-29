@@ -14,6 +14,7 @@ Reponizer keeps a large, structured git repository folder organized. It works wi
 - **Fork to…** — fork a cloned repo to another host or namespace (`⌘⇧F`), with autocompletion for the hosts and namespaces you already use (GitLab subgroups included) and an optional new name; your fork becomes the origin, the old one is kept as upstream, and the folder moves to its new place
 - **Clone into structure** — paste any git URL (or a bare `github.com/owner/repo` path) and it lands in the right folder, keeping the protocol you pasted; you can also clone straight into a fork of your own
 - **Fetch / Pull everything** — bulk fetch and safe fast-forward pulls with progress and a failure report
+- **Publish Branch** — push a branch that has never been pushed to `origin` and track it from then on
 - **Offload local copies** — verify a repo is fully pushed, then free its disk space while keeping a placeholder; re-download it anytime
 - **Export / import** — mirror your repository list across machines via a JSON file or the Raycast-synced snapshot
 - **Menu bar health check** *(optional)* — a quiet counter of repositories that need attention

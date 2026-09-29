@@ -1,5 +1,9 @@
 # Reponizer Changelog
 
+## [Create Repository] - {PR_MERGE_DATE}
+
+- Publish Branch: push a branch that has never been pushed to `origin` and set it to track the pushed branch
+
 ## [Git Error Fixes] - {PR_MERGE_DATE}
 
 - Fixed: cloning and forking repositories that use Git LFS no longer fail with "failed to find custom transfer command"

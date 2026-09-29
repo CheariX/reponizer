@@ -45,6 +45,16 @@ export async function pullRepo(repo: Repo): Promise<OpResult> {
   }
 }
 
+/** The checked-out branch has commits but was never pushed: there is an origin, but no upstream yet. */
+export function hasUnpublishedBranch(repo: Repo): boolean {
+  return !!repo.origin && !!repo.status && !repo.status.detached && !repo.status.upstream && !!repo.lastCommitAt;
+}
+
+/** Push the checked-out branch to origin under the same name and track it from now on. */
+export async function publishBranch(fullPath: string): Promise<void> {
+  await git(fullPath, ["push", "--set-upstream", "origin", "HEAD"], { timeoutMs: NETWORK_TIMEOUT });
+}
+
 export async function runOnRepos(
   repos: Repo[],
   op: (repo: Repo) => Promise<OpResult>,

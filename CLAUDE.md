@@ -45,7 +45,7 @@ src/
                         Alacritty/WezTerm/Ghostty need the cwd as launch args via `open -n --args`);
                         strips LANG/LC_* — `open` forwards env, Raycast's BCP-47 LC_ALL breaks shells
     cache.ts            Raycast Cache read/write + reconcile/refresh helpers
-    ops.ts              fetch/pull/clone/relocate/prune, bulk runner, result summaries
+    ops.ts              fetch/pull/publish/clone/relocate/prune, bulk runner, result summaries
     targets.ts          Where a new repository goes: known hosts/namespaces under the root, initial
                         host/namespace, planTarget (validated host/namespace/name → URL + path)
     fork.ts             Fork detection (upstream remote + divergence), fork planning on top of
@@ -72,6 +72,7 @@ src/
 - **`RemoteCheck.state`** drives all "deviation" UI: `ok | mismatch | no-origin | no-remotes | unstructured | unknown`. Fixes offered: set origin to expected (preserving the current origin's protocol), or relocate the folder to match origin.
 - **Offload safety**: `offload.findUnsyncedState` fetches origin first, then blocks on uncommitted/untracked changes, stashes, and any branch that is ahead, upstream-less, or tracking a gone upstream. The working copy is renamed aside, the placeholder (`reponizer-offloaded.json`, schema `reponizer/offloaded`, includes origin + all remotes + branch + size) is written, then the copy is trashed; failures roll back. Restore refuses non-empty folders and re-creates the placeholder if the clone fails.
 - **Pull is always `--ff-only`** and skips dirty/detached/conflicted/upstream-less repos (`ops.pullRepo`). Never introduce merging pulls.
+- **"Publish Branch" is the one-branch push**: `ops.publishBranch` runs `push --set-upstream origin HEAD` and is offered only while `ops.hasUnpublishedBranch` holds (origin present, branch attached, has commits, no upstream). Unlike the fork's "Push to Origin" it never carries other branches or tags.
 - **"Sync from Upstream" is fast-forward only too** (`fork.syncForkRepo`: fetch the upstream remote, then `merge --ff-only <upstream-ref>`). It skips dirty/detached/conflicted repos, repos without a matching upstream branch, `behind === 0`, and anything with local commits ahead of the upstream ref. Never introduce a merging or rebasing variant.
 - **A fork push is never rolled back**: `fork.executeFork` rewires the remotes (origin → fork target, previous origin kept as the upstream remote) before pushing, and a failing push throws `ForkPushError` with everything left in place — the remotes stay rewired and, in the move variant, the folder stays at its old path. Hosts without push-to-create (GitHub; GitLab and Gitea create the project on first push) are the normal cause. The resulting `mismatch` is the deliberate, self-explaining intermediate state: the existing "Relocate Folder to Match Origin" action resolves it and "Push to Origin" (`fork.pushToOrigin`) is the retry, with `remotes.createRepoUrl` pointing at the page for creating the repository by hand.
 - **Forking into a copy materializes tracking branches first**: in the `keepOriginal` variant the clone's `refs/remotes/origin/*` are turned into local branches *before* `git remote remove origin`, because removing the remote deletes the tracking refs and `push --all` would otherwise carry only the checked-out branch.
