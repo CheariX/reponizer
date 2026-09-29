@@ -37,6 +37,20 @@ export function targetHostOptions(entries: RepoEntry[], config: Config, aliases:
   return [...hosts].filter(Boolean).sort();
 }
 
+/** Host with the most repositories under the root — the likeliest target when nothing hints at another. */
+export function primaryHost(entries: RepoEntry[]): string | undefined {
+  const counts = new Map<string, number>();
+  for (const entry of entries) {
+    const host = entry.relativePath.split("/")[0];
+    if (host) counts.set(host, (counts.get(host) ?? 0) + 1);
+  }
+  let best: string | undefined;
+  for (const [host, count] of counts) {
+    if (!best || count > (counts.get(best) ?? 0)) best = host;
+  }
+  return best;
+}
+
 /**
  * Host and namespace a form starts on: the source host when it has a configured default,
  * otherwise the first configured host, otherwise the source host with an empty namespace.

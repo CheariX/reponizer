@@ -9,6 +9,8 @@ export interface RepoTargetState {
   /** Selecting a host always re-applies that host's default namespace (or clears it). */
   setHost: (host: string) => void;
   setNamespace: (namespace: string) => void;
+  /** Free text typed into the host dropdown; offered as an extra option. */
+  setHostQuery: (query: string) => void;
   /** Free text typed into the namespace dropdown; offered as an extra option. */
   setNamespaceQuery: (query: string) => void;
   /** Re-apply the preselection for a (possibly newly known) source host. */
@@ -26,6 +28,7 @@ export function useRepoTarget(entries: RepoEntry[], sourceHost?: string): RepoTa
   const initial = useRef(initialTarget(config, sourceHost)).current;
   const [host, setHostState] = useState(initial.host);
   const [namespace, setNamespace] = useState(initial.namespace);
+  const [hostQuery, setHostQuery] = useState("");
   const [namespaceQuery, setNamespaceQuery] = useState("");
 
   const setHost = useCallback(
@@ -50,11 +53,12 @@ export function useRepoTarget(entries: RepoEntry[], sourceHost?: string): RepoTa
 
   const hosts = useMemo(() => {
     const options = targetHostOptions(entries, config, getHostRules().aliasToReal.keys());
-    for (const extra of [sourceHost, host]) {
+    const typed = hostQuery.trim().toLowerCase();
+    for (const extra of [sourceHost, host, typed]) {
       if (extra && !options.includes(extra)) options.push(extra);
     }
     return options.sort();
-  }, [entries, config, sourceHost, host]);
+  }, [entries, config, sourceHost, host, hostQuery]);
 
   const namespaceOptions = useMemo(() => {
     const options = [...(namespacesByHost.get(host) ?? [])];
@@ -65,5 +69,5 @@ export function useRepoTarget(entries: RepoEntry[], sourceHost?: string): RepoTa
     return options;
   }, [namespacesByHost, host, namespace, namespaceQuery]);
 
-  return { host, namespace, setHost, setNamespace, setNamespaceQuery, reset, hosts, namespaceOptions };
+  return { host, namespace, setHost, setNamespace, setHostQuery, setNamespaceQuery, reset, hosts, namespaceOptions };
 }

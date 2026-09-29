@@ -107,24 +107,31 @@ export function planClone(
   return { url: finalUrl, destination: path.join(root, relativePath), relativePath };
 }
 
-export async function cloneRepo(plan: ClonePlan): Promise<void> {
-  let existing: string[] | undefined;
+/**
+ * Make sure a new repository can go to `destination`: it must be missing or empty apart from a
+ * stray .DS_Store, which is removed (git refuses to clone into a non-empty directory).
+ * Returns whether the folder is missing, so a rollback knows whether to remove it again.
+ */
+export async function prepareDestination(destination: string, relativePath: string): Promise<boolean> {
+  let existing: string[];
   try {
-    existing = await fs.readdir(plan.destination);
+    existing = await fs.readdir(destination);
   } catch {
-    existing = undefined; // destination does not exist yet — the normal case
+    return true; // destination does not exist yet — the normal case
   }
-  if (existing) {
-    const meaningful = existing.filter((n) => n !== ".DS_Store");
-    if (meaningful.length === 1 && meaningful[0] === OFFLOAD_FILE) {
-      throw new Error(`This repo is offloaded at ${plan.relativePath} — use “Restore Local Copy” instead.`);
-    }
-    if (meaningful.length > 0) {
-      throw new Error(`Destination already exists: ${plan.destination}`);
-    }
-    // git refuses to clone into a non-empty directory, so clear a stray .DS_Store.
-    await fs.rm(path.join(plan.destination, ".DS_Store"), { force: true });
+  const meaningful = existing.filter((n) => n !== ".DS_Store");
+  if (meaningful.length === 1 && meaningful[0] === OFFLOAD_FILE) {
+    throw new Error(`This repo is offloaded at ${relativePath} — use “Restore Local Copy” instead.`);
   }
+  if (meaningful.length > 0) {
+    throw new Error(`Destination already exists: ${destination}`);
+  }
+  await fs.rm(path.join(destination, ".DS_Store"), { force: true });
+  return false;
+}
+
+export async function cloneRepo(plan: ClonePlan): Promise<void> {
+  await prepareDestination(plan.destination, plan.relativePath);
   await fs.mkdir(path.dirname(plan.destination), { recursive: true });
   await git(path.dirname(plan.destination), ["clone", "--", plan.url, plan.destination], { timeoutMs: 15 * 60_000 });
 }

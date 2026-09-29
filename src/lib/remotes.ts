@@ -1,6 +1,6 @@
 import gitUrlParse from "git-url-parse";
 import { getHostRules } from "./config";
-import type { Protocol, RemoteCheck, RemoteInfo } from "./types";
+import type { Protocol, RemoteCheck, RemoteInfo, Visibility } from "./types";
 
 /**
  * Canonical folder-space form of a remote host: lowercased, with the configured
@@ -84,12 +84,18 @@ export function webUrlFor(url: string): string | undefined {
 
 /**
  * Page where the repository can be created by hand, for hosts without push-to-create.
- * GitLab and Gitea create the project on first push; GitHub does not.
+ * GitLab and Gitea create the project on first push; GitHub does not, but its form can be
+ * prefilled with owner, name, and visibility.
  */
-export function createRepoUrl(targetUrl: string): string | undefined {
+export function createRepoUrl(targetUrl: string, visibility?: Visibility): string | undefined {
   const parsed = parseRemoteUrl(targetUrl);
   if (!parsed) return undefined;
-  if (parsed.host.toLowerCase() === "github.com") return "https://github.com/new";
+  if (parsed.host.toLowerCase() === "github.com") {
+    const [owner, ...rest] = parsed.path.split("/");
+    const params = new URLSearchParams({ owner, name: rest.join("/") });
+    if (visibility) params.set("visibility", visibility);
+    return `https://github.com/new?${params}`;
+  }
   return `https://${parsed.host}/projects/new`;
 }
 

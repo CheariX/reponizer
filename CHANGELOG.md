@@ -2,7 +2,11 @@
 
 ## [Create Repository] - {PR_MERGE_DATE}
 
+- Create Repository: a new command and list action (`⌘N`) that creates a repository on its host together with an empty local copy in the right folder; an empty initial commit is pushed so the branch tracks `origin` from the start
+- GitHub repositories are created as private or public with the GitHub CLI (`gh`); GitLab and Gitea create a private project on the first push. Without `gh`, the local copy is still set up and GitHub's prefilled "new repository" page is one click away
 - Publish Branch: push a branch that has never been pushed to `origin` and set it to track the pushed branch
+- The "Create the Repository" link offered when a fork cannot be pushed to GitHub now prefills the owner and name
+- The "Default Fork Namespaces" preference is now "Default Namespaces" and also preselects the namespace for new repositories
 
 ## [Git Error Fixes] - {PR_MERGE_DATE}
 

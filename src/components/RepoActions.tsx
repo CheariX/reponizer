@@ -14,9 +14,11 @@ import {
   openExtensionPreferences,
   showToast,
   trash,
+  useNavigation,
 } from "@raycast/api";
 import type { RepoIndexController } from "../hooks/useRepoIndex";
 import { getConfig } from "../lib/config";
+import { hostOf } from "../lib/filters";
 import { ForkPushError, pushToOrigin, syncForkRepo, upstreamCandidates } from "../lib/fork";
 import { git } from "../lib/git";
 import { OffloadBlockedError, offloadRepo, restoreOffloaded } from "../lib/offload";
@@ -43,6 +45,7 @@ import {
 import { openInTerminal } from "../lib/terminal";
 import type { OffloadedRepo, Protocol, Repo, RepoEntry } from "../lib/types";
 import { describeTransition, errorDetails, errorMessage, formatBytes } from "../lib/util";
+import { CreateRepoForm } from "./CreateRepoForm";
 import { ForkView } from "./ForkView";
 import { RemoteForm, RemotesView } from "./RemotesView";
 
@@ -495,9 +498,26 @@ function StorageActions({ entry, ctl }: ActionContext) {
   );
 }
 
-function IndexActions({ ctl }: ActionContext) {
+function IndexActions({ entry, ctl }: ActionContext) {
+  const { pop } = useNavigation();
   return (
     <ActionPanel.Section title="Index">
+      <Action.Push
+        title="Create Repository"
+        icon={Icon.Plus}
+        shortcut={Keyboard.Shortcut.Common.New}
+        target={
+          <CreateRepoForm
+            entries={ctl.index?.entries ?? []}
+            sourceHost={hostOf(entry)}
+            navigationTitle="Create Repository"
+            onCreated={async (fullPath) => {
+              await ctl.reconcile(fullPath);
+              pop();
+            }}
+          />
+        }
+      />
       <Action
         title="Refresh"
         icon={Icon.ArrowClockwise}

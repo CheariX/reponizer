@@ -22,7 +22,7 @@ type ExtensionPreferences = {
   "hostOnlyHosts"?: string,
   /** Upstream Remote - Name of the remote that marks a repository as a fork and is used by “Sync from Upstream”. */
   "upstreamRemoteName": string,
-  /** Default Fork Namespaces - Comma-separated host=namespace pairs preselected when forking, e.g. “gitlab.com=me/subgroup, github.com=MyUser”. Switching the host in the fork form picks that host’s namespace; hosts without an entry start empty. */
+  /** Default Namespaces - Comma-separated host=namespace pairs preselected when forking or creating a repository, e.g. “gitlab.com=me/subgroup, github.com=MyUser”. Switching the host in a form picks that host’s namespace; hosts without an entry start empty. */
   "defaultForkNamespaces"?: string,
   /** Editor - Application used by the “Open in Editor” action. */
   "editorApp"?: import("@raycast/api").Application,
@@ -38,6 +38,8 @@ declare namespace Preferences {
   export type SearchRepos = ExtensionPreferences & {}
   /** Preferences accessible in the `clone-repo` command */
   export type CloneRepo = ExtensionPreferences & {}
+  /** Preferences accessible in the `create-repo` command */
+  export type CreateRepo = ExtensionPreferences & {}
   /** Preferences accessible in the `fetch-all` command */
   export type FetchAll = ExtensionPreferences & {}
   /** Preferences accessible in the `pull-all` command */
@@ -57,6 +59,11 @@ declare namespace Arguments {
   export type CloneRepo = {
   /** Repository URL */
   "url": string
+}
+  /** Arguments passed to the `create-repo` command */
+  export type CreateRepo = {
+  /** Repository Name */
+  "name": string
 }
   /** Arguments passed to the `fetch-all` command */
   export type FetchAll = {}
