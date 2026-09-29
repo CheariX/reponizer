@@ -29,6 +29,7 @@ src/
     ForkView.tsx        Fork form (host/namespace/name → plan preview → rewire, push, relocate)
     CreateRepoForm.tsx  Create form shared by the command and the list action (⌘N); the caller's
                         onCreated refreshes the index and navigates
+    TargetDropdownItems.tsx  Host/namespace dropdown items (function, not component — see Gotchas)
   hooks/
     useRepoIndex.ts     Cache-first index hook: instant render, background rescan
     useRepoTarget.ts    Host/namespace selection state + options from the structures under the root
@@ -49,8 +50,9 @@ src/
                         strips LANG/LC_* — `open` forwards env, Raycast's BCP-47 LC_ALL breaks shells
     cache.ts            Raycast Cache read/write + reconcile/refresh helpers
     ops.ts              fetch/pull/publish/clone/relocate/prune, bulk runner, result summaries
-    targets.ts          Where a new repository goes: known hosts/namespaces under the root, initial
-                        host/namespace, planTarget (validated host/namespace/name → URL + path)
+    targets.ts          Where a new repository goes: known hosts/namespaces under the root, searchable
+                        dropdown options (targetOptions), initial host/namespace, planTarget
+                        (validated host/namespace/name → URL + path)
     fork.ts             Fork detection (upstream remote + divergence), fork planning on top of
                         planTarget, execution (rewire remotes, push, relocate/clone), ff-only upstream sync
     create.ts           Repository creation: method per host (GitHub CLI vs. push-to-create),
@@ -104,6 +106,7 @@ src/
 - `git-url-parse`'s `full_name` includes GitLab subgroups (`group/sub/repo`); code must not assume exactly `owner/name`.
 - Offloaded placeholders make `cloneRepo` fail with a pointer to "Restore Local Copy" instead of cloning over the folder.
 - `confirmAlert` centres its message and has no alignment option, so dialogs keep lines short instead of labelling them: `util.describeTransition` puts a from/to pair on separate lines with the arrow between. Raycast also truncates the message after a few lines ("…"), so the explanatory sentence goes into the alert title, never as a lead line above the pair. Multi-fact strings joined with `·` or `→` wrap mid-path and are unreadable there; labelled key/value layout belongs in `Form.Description` rows (`ForkView`, clone form), which Raycast left-aligns.
+- Raycast's native dropdown filtering (`filtering`) breaks when the items change while the user searches, e.g. to offer the typed text as an item of its own. Searchable host/namespace dropdowns therefore pass `filtering={false}` and get pre-filtered items from `targets.targetOptions`: matches, then the typed value, then the current value — a controlled dropdown must always contain its value, and last it never takes the highlight (and the Enter key) from a match. Picking a value clears the query (`useRepoTarget`), since a leftover query would still filter the next time the dropdown opens.
 - Raycast `Form` children must be direct `Form.*` elements — a wrapper component rendering several fields is not accepted. Shared form logic therefore ships as a hook: `hooks/useRepoTarget.ts` holds the host/namespace state plus the option lists, and each form (`ForkView`, the clone destination form, `CreateRepoForm`) renders its own `Form.Dropdown`s from it.
 - The menu bar command runs on an `interval` and must stay cheap: it renders from the cache and only rescans on explicit "Rescan Now".
 - `ray lint` enforces Prettier (printWidth 120) and Raycast eslint rules; run `npm run fix-lint` before committing.

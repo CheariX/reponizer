@@ -1,6 +1,7 @@
 import { Action, ActionPanel, Clipboard, Form, Icon, Toast, open, showToast } from "@raycast/api";
 import { useMemo, useRef, useState } from "react";
 import { useRepoTarget } from "../hooks/useRepoTarget";
+import { targetDropdownItems } from "./TargetDropdownItems";
 import { getConfig } from "../lib/config";
 import { creationMethodFor, executeCreate, planCreate, type CreateOutcome, type CreatePlan } from "../lib/create";
 import { primaryHost } from "../lib/targets";
@@ -91,31 +92,29 @@ export function CreateRepoForm({ entries, sourceHost, initialName, navigationTit
         id="host"
         title="Host"
         value={target.host}
-        filtering
+        filtering={false}
         onSearchTextChange={target.setHostQuery}
         onChange={target.setHost}
+        placeholder="Search or type a host"
         info="Type to use a host that has no repositories under the root yet."
       >
-        {target.hosts.map((host) => (
-          <Form.Dropdown.Item key={host} value={host} title={host} icon={Icon.Globe} />
-        ))}
+        {targetDropdownItems(target.hostOptions, Icon.Globe, "Select a Host")}
       </Form.Dropdown>
       <Form.Dropdown
         id="namespace"
         title="Namespace"
         value={target.namespace}
-        filtering
+        filtering={false}
         onSearchTextChange={target.setNamespaceQuery}
         onChange={target.setNamespace}
+        placeholder="Search or type a namespace"
         info={
           viaGitHub
             ? "Your GitHub user or one of your organizations. Type to use one that does not exist locally yet."
             : "Owner, group, or subgroup below the host. Type to use one that does not exist locally yet."
         }
       >
-        {target.namespaceOptions.map((namespace) => (
-          <Form.Dropdown.Item key={namespace} value={namespace} title={namespace} icon={Icon.Person} />
-        ))}
+        {targetDropdownItems(target.namespaceOptions, Icon.Person, "Select a Namespace")}
       </Form.Dropdown>
       <Form.TextField
         id="name"

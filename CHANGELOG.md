@@ -7,6 +7,7 @@
 - Publish Branch: push a branch that has never been pushed to `origin` and set it to track the pushed branch
 - The "Create the Repository" link offered when a fork cannot be pushed to GitHub now prefills the owner and name
 - The "Default Fork Namespaces" preference is now "Default Namespaces" and also preselects the namespace for new repositories
+- Fixed: searching the namespace field of the fork and clone forms (and the host field of the new create form) now filters the list, and text that matches nothing can be picked as a new namespace
 
 ## [Git Error Fixes] - {PR_MERGE_DATE}
 

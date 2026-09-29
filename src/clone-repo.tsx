@@ -11,6 +11,7 @@ import {
   showToast,
 } from "@raycast/api";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { targetDropdownItems } from "./components/TargetDropdownItems";
 import { useRepoTarget } from "./hooks/useRepoTarget";
 import { readCachedIndex, reconcilePath } from "./lib/cache";
 import { getConfig } from "./lib/config";
@@ -183,9 +184,7 @@ export default function Command(props: LaunchProps<{ arguments: { url?: string }
             target.setHost(value);
           }}
         >
-          {target.hosts.map((host) => (
-            <Form.Dropdown.Item key={host} value={host} title={host} icon={Icon.Globe} />
-          ))}
+          {targetDropdownItems(target.hostOptions, Icon.Globe, "Select a Host")}
         </Form.Dropdown>
       )}
       {fork && (
@@ -193,14 +192,13 @@ export default function Command(props: LaunchProps<{ arguments: { url?: string }
           id="namespace"
           title="Fork Namespace"
           value={target.namespace}
-          filtering
+          filtering={false}
           onSearchTextChange={target.setNamespaceQuery}
           onChange={target.setNamespace}
+          placeholder="Search or type a namespace"
           info="Owner, group, or subgroup below the host. Type to use one that does not exist locally yet."
         >
-          {target.namespaceOptions.map((namespace) => (
-            <Form.Dropdown.Item key={namespace} value={namespace} title={namespace} icon={Icon.Person} />
-          ))}
+          {targetDropdownItems(target.namespaceOptions, Icon.Person, "Select a Namespace")}
         </Form.Dropdown>
       )}
       {fork && (

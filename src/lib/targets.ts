@@ -37,6 +37,27 @@ export function targetHostOptions(entries: RepoEntry[], config: Config, aliases:
   return [...hosts].filter(Boolean).sort();
 }
 
+export interface TargetOption {
+  value: string;
+  /** Not under the root yet: typed into the search field, or preselected from the preferences. */
+  isNew: boolean;
+}
+
+/**
+ * Items of a searchable host/namespace dropdown that also accepts values typed into its search field.
+ * Raycast's native filtering breaks once the items change while searching, so the forms turn it off
+ * and filter here: known values containing the query, then the query itself when it is new, then the
+ * current value. A controlled dropdown must always contain its value, and placed last it never takes
+ * the highlight (and with it the Enter key) away from a match.
+ */
+export function targetOptions(known: string[], current: string, typed: string): TargetOption[] {
+  const needle = typed.toLowerCase();
+  const values = known.filter((value) => value.toLowerCase().includes(needle));
+  if (typed && !values.some((value) => value.toLowerCase() === needle)) values.push(typed);
+  if (!values.includes(current)) values.push(current);
+  return values.map((value) => ({ value, isNew: !known.includes(value) }));
+}
+
 /** Host with the most repositories under the root — the likeliest target when nothing hints at another. */
 export function primaryHost(entries: RepoEntry[]): string | undefined {
   const counts = new Map<string, number>();

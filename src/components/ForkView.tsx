@@ -13,6 +13,7 @@ import {
 } from "@raycast/api";
 import { useMemo, useState } from "react";
 import { useRepoTarget } from "../hooks/useRepoTarget";
+import { targetDropdownItems } from "./TargetDropdownItems";
 import type { RepoIndexController } from "../hooks/useRepoIndex";
 import { getConfig } from "../lib/config";
 import { ForkPushError, PushScope, executeFork, planFork } from "../lib/fork";
@@ -129,22 +130,19 @@ export function ForkView({ repo, ctl }: { repo: Repo; ctl: RepoIndexController }
       }
     >
       <Form.Dropdown id="host" title="Host" value={target.host} onChange={target.setHost}>
-        {target.hosts.map((host) => (
-          <Form.Dropdown.Item key={host} value={host} title={host} icon={Icon.Globe} />
-        ))}
+        {targetDropdownItems(target.hostOptions, Icon.Globe, "Select a Host")}
       </Form.Dropdown>
       <Form.Dropdown
         id="namespace"
         title="Namespace"
         value={target.namespace}
-        filtering
+        filtering={false}
         onSearchTextChange={target.setNamespaceQuery}
         onChange={target.setNamespace}
+        placeholder="Search or type a namespace"
         info="Owner, group, or subgroup below the host. Type to use one that does not exist locally yet."
       >
-        {target.namespaceOptions.map((namespace) => (
-          <Form.Dropdown.Item key={namespace} value={namespace} title={namespace} icon={Icon.Person} />
-        ))}
+        {targetDropdownItems(target.namespaceOptions, Icon.Person, "Select a Namespace")}
       </Form.Dropdown>
       <Form.TextField
         id="name"

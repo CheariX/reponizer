@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { getConfig, getHostRules } from "../lib/config";
-import { initialTarget, knownNamespaces, targetHostOptions } from "../lib/targets";
+import { initialTarget, knownNamespaces, targetHostOptions, targetOptions, type TargetOption } from "../lib/targets";
 import type { RepoEntry } from "../lib/types";
 
 export interface RepoTargetState {
@@ -9,65 +9,78 @@ export interface RepoTargetState {
   /** Selecting a host always re-applies that host's default namespace (or clears it). */
   setHost: (host: string) => void;
   setNamespace: (namespace: string) => void;
-  /** Free text typed into the host dropdown; offered as an extra option. */
+  /** Text typed into the host dropdown's search field: filters the options and is offered as one. */
   setHostQuery: (query: string) => void;
-  /** Free text typed into the namespace dropdown; offered as an extra option. */
+  /** Text typed into the namespace dropdown's search field: filters the options and is offered as one. */
   setNamespaceQuery: (query: string) => void;
   /** Re-apply the preselection for a (possibly newly known) source host. */
   reset: (sourceHost?: string) => void;
-  hosts: string[];
-  namespaceOptions: string[];
+  hostOptions: TargetOption[];
+  namespaceOptions: TargetOption[];
 }
 
 /**
  * Shared state of the host/namespace pair in the forms that pick where a repository goes. Options come
- * from the structures already present under the root, so GitLab subgroups are offered without extra configuration.
+ * from the structures already present under the root, so GitLab subgroups are offered without extra
+ * configuration. A dropdown that passes one of the query setters as `onSearchTextChange` must also pass
+ * `filtering={false}` (see `targetOptions`).
  */
 export function useRepoTarget(entries: RepoEntry[], sourceHost?: string): RepoTargetState {
   const config = useRef(getConfig()).current;
   const initial = useRef(initialTarget(config, sourceHost)).current;
   const [host, setHostState] = useState(initial.host);
-  const [namespace, setNamespace] = useState(initial.namespace);
+  const [namespace, setNamespaceState] = useState(initial.namespace);
   const [hostQuery, setHostQuery] = useState("");
   const [namespaceQuery, setNamespaceQuery] = useState("");
+
+  // A pick ends the search: a query left behind would keep filtering the next time the dropdown opens.
+  const setNamespace = useCallback((next: string) => {
+    setNamespaceState(next);
+    setNamespaceQuery("");
+  }, []);
 
   const setHost = useCallback(
     (next: string) => {
       setHostState(next);
+      setHostQuery("");
       // A namespace only ever belongs to one host, so never carry it across.
       setNamespace(config.defaultNamespaces.get(next) ?? "");
     },
-    [config],
+    [config, setNamespace],
   );
 
   const reset = useCallback(
     (nextSourceHost?: string) => {
       const target = initialTarget(config, nextSourceHost);
       setHostState(target.host);
+      setHostQuery("");
       setNamespace(target.namespace);
     },
-    [config],
+    [config, setNamespace],
   );
 
   const namespacesByHost = useMemo(() => knownNamespaces(entries), [entries]);
 
-  const hosts = useMemo(() => {
-    const options = targetHostOptions(entries, config, getHostRules().aliasToReal.keys());
-    const typed = hostQuery.trim().toLowerCase();
-    for (const extra of [sourceHost, host, typed]) {
-      if (extra && !options.includes(extra)) options.push(extra);
-    }
-    return options.sort();
+  const hostOptions = useMemo(() => {
+    const known = targetHostOptions(entries, config, getHostRules().aliasToReal.keys());
+    if (sourceHost && !known.includes(sourceHost)) known.push(sourceHost);
+    return targetOptions(known.sort(), host, hostQuery.trim().toLowerCase());
   }, [entries, config, sourceHost, host, hostQuery]);
 
-  const namespaceOptions = useMemo(() => {
-    const options = [...(namespacesByHost.get(host) ?? [])];
-    const typed = namespaceQuery.trim().replace(/^\/+|\/+$/g, "");
-    for (const extra of [namespace, typed]) {
-      if (extra && !options.includes(extra)) options.push(extra);
-    }
-    return options;
-  }, [namespacesByHost, host, namespace, namespaceQuery]);
+  const namespaceOptions = useMemo(
+    () => targetOptions(namespacesByHost.get(host) ?? [], namespace, namespaceQuery.trim().replace(/^\/+|\/+$/g, "")),
+    [namespacesByHost, host, namespace, namespaceQuery],
+  );
 
-  return { host, namespace, setHost, setNamespace, setHostQuery, setNamespaceQuery, reset, hosts, namespaceOptions };
+  return {
+    host,
+    namespace,
+    setHost,
+    setNamespace,
+    setHostQuery,
+    setNamespaceQuery,
+    reset,
+    hostOptions,
+    namespaceOptions,
+  };
 }
