@@ -12,12 +12,13 @@ import {
   useNavigation,
 } from "@raycast/api";
 import { useMemo, useState } from "react";
-import { useForkTarget } from "../hooks/useForkTarget";
+import { useRepoTarget } from "../hooks/useRepoTarget";
+import { targetDropdownItems } from "./TargetDropdownItems";
 import type { RepoIndexController } from "../hooks/useRepoIndex";
 import { getConfig } from "../lib/config";
-import { ForkPushError, PushScope, createRepoUrl, executeFork, planFork } from "../lib/fork";
+import { ForkPushError, PushScope, executeFork, planFork } from "../lib/fork";
 import { hostOf } from "../lib/filters";
-import { protocolOf } from "../lib/remotes";
+import { createRepoUrl, protocolOf } from "../lib/remotes";
 import type { Protocol, Repo } from "../lib/types";
 import { describeTransition, errorDetails, errorMessage } from "../lib/util";
 
@@ -33,7 +34,7 @@ export function ForkView({ repo, ctl }: { repo: Repo; ctl: RepoIndexController }
   const { pop } = useNavigation();
   const config = getConfig();
   const entries = useMemo(() => ctl.index?.entries ?? [], [ctl.index]);
-  const target = useForkTarget(entries, hostOf(repo));
+  const target = useRepoTarget(entries, hostOf(repo));
 
   const [name, setName] = useState(repo.name);
   const [keepOriginal, setKeepOriginal] = useState(false);
@@ -129,22 +130,19 @@ export function ForkView({ repo, ctl }: { repo: Repo; ctl: RepoIndexController }
       }
     >
       <Form.Dropdown id="host" title="Host" value={target.host} onChange={target.setHost}>
-        {target.hosts.map((host) => (
-          <Form.Dropdown.Item key={host} value={host} title={host} icon={Icon.Globe} />
-        ))}
+        {targetDropdownItems(target.hostOptions, Icon.Globe, "Select a Host")}
       </Form.Dropdown>
       <Form.Dropdown
         id="namespace"
         title="Namespace"
         value={target.namespace}
-        filtering
+        filtering={false}
         onSearchTextChange={target.setNamespaceQuery}
         onChange={target.setNamespace}
+        placeholder="Search or type a namespace"
         info="Owner, group, or subgroup below the host. Type to use one that does not exist locally yet."
       >
-        {target.namespaceOptions.map((namespace) => (
-          <Form.Dropdown.Item key={namespace} value={namespace} title={namespace} icon={Icon.Person} />
-        ))}
+        {targetDropdownItems(target.namespaceOptions, Icon.Person, "Select a Namespace")}
       </Form.Dropdown>
       <Form.TextField
         id="name"

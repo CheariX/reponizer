@@ -14,26 +14,38 @@ import {
   openExtensionPreferences,
   showToast,
   trash,
+  useNavigation,
 } from "@raycast/api";
 import type { RepoIndexController } from "../hooks/useRepoIndex";
 import { getConfig } from "../lib/config";
-import { ForkPushError, createRepoUrl, pushToOrigin, syncForkRepo, upstreamCandidates } from "../lib/fork";
+import { hostOf } from "../lib/filters";
+import { ForkPushError, pushToOrigin, syncForkRepo, upstreamCandidates } from "../lib/fork";
 import { git } from "../lib/git";
 import { OffloadBlockedError, offloadRepo, restoreOffloaded } from "../lib/offload";
 import {
   OpResult,
   failureReport,
   fetchRepo,
+  hasUnpublishedBranch,
+  publishBranch,
   pullRepo,
   pruneEmptyParents,
   relocateRepo,
   runOnRepos,
   summarizeResults,
 } from "../lib/ops";
-import { convertProtocol, expectedOriginFor, protocolOf, relativePathForUrl, webUrlFor } from "../lib/remotes";
+import {
+  convertProtocol,
+  createRepoUrl,
+  expectedOriginFor,
+  protocolOf,
+  relativePathForUrl,
+  webUrlFor,
+} from "../lib/remotes";
 import { openInTerminal } from "../lib/terminal";
 import type { OffloadedRepo, Protocol, Repo, RepoEntry } from "../lib/types";
 import { describeTransition, errorDetails, errorMessage, formatBytes } from "../lib/util";
+import { CreateRepoForm } from "./CreateRepoForm";
 import { ForkView } from "./ForkView";
 import { RemoteForm, RemotesView } from "./RemotesView";
 
@@ -182,6 +194,21 @@ function SyncActions({ entry, ctl }: ActionContext) {
       return result.skipped ? `Skipped: ${result.skipped}` : "Pulled (fast-forward)";
     });
 
+  const branch = repo.status?.branch ?? "HEAD";
+  const publish = async () => {
+    const confirmed = await confirmAlert({
+      title: "Publish Branch to Origin",
+      message: describeTransition(branch, repo.origin?.fetchUrl ?? "—"),
+      primaryAction: { title: "Publish" },
+    });
+    if (!confirmed) return;
+    await withToast(`Publishing ${branch}…`, async () => {
+      await publishBranch(repo.fullPath);
+      await ctl.reconcile(repo.fullPath);
+      return `Tracking origin/${branch}`;
+    });
+  };
+
   return (
     <ActionPanel.Section title="Sync">
       <Action title="Fetch" icon={Icon.ArrowDown} shortcut={{ modifiers: ["opt"], key: "f" }} onAction={fetchOne} />
@@ -191,6 +218,7 @@ function SyncActions({ entry, ctl }: ActionContext) {
         shortcut={{ modifiers: ["opt"], key: "p" }}
         onAction={pullOne}
       />
+      {hasUnpublishedBranch(repo) && <Action title="Publish Branch" icon={Icon.Upload} onAction={publish} />}
       <Action
         title="Fetch All"
         icon={Icon.ArrowDown}
@@ -470,9 +498,26 @@ function StorageActions({ entry, ctl }: ActionContext) {
   );
 }
 
-function IndexActions({ ctl }: ActionContext) {
+function IndexActions({ entry, ctl }: ActionContext) {
+  const { pop } = useNavigation();
   return (
     <ActionPanel.Section title="Index">
+      <Action.Push
+        title="Create Repository"
+        icon={Icon.Plus}
+        shortcut={Keyboard.Shortcut.Common.New}
+        target={
+          <CreateRepoForm
+            entries={ctl.index?.entries ?? []}
+            sourceHost={hostOf(entry)}
+            navigationTitle="Create Repository"
+            onCreated={async (fullPath) => {
+              await ctl.reconcile(fullPath);
+              pop();
+            }}
+          />
+        }
+      />
       <Action
         title="Refresh"
         icon={Icon.ArrowClockwise}
