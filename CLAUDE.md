@@ -47,8 +47,11 @@ src/
     remotes.ts          URL parse/normalize/convert, expected-origin derivation, checkRemotes
     inspect.ts          Per-repo inspection, index building, duplicate marking
     sizes.ts            Batched `du -sk`
-    terminal.ts         Open-in-terminal launch: per-app `open` argv (Warp URL scheme; kitty/
-                        Alacritty/WezTerm/Ghostty need the cwd as launch args via `open -n --args`);
+    terminal.ts         Open-in-terminal launch: a tab of the front window (a window when none is open)
+                        wherever the app offers one without setup — iTerm2/Ghostty via plain `open`,
+                        Warp's `new_tab` URL, a running Terminal.app via its "New Terminal Tab at
+                        Folder" service (NSPerformService in JXA; needs no permission) — else a window:
+                        kitty/Alacritty/WezTerm take the cwd as launch args via `open -n --args`;
                         strips LANG/LC_* — `open` forwards env, Raycast's BCP-47 LC_ALL breaks shells
     cache.ts            Raycast Cache read/write + reconcile/refresh helpers
     ops.ts              fetch/pull/publish/clone/relocate/prune, bulk runner, result summaries

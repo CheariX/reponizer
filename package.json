@@ -191,7 +191,7 @@
       "required": false,
       "default": "com.apple.Terminal",
       "title": "Terminal",
-      "description": "Application used by the “Open in Terminal” action. Terminal.app, iTerm2, kitty, Alacritty, WezTerm, Ghostty, and Warp all open in the repository folder."
+      "description": "Application used by the “Open in Terminal” action. Terminal.app, iTerm2, kitty, Alacritty, WezTerm, Ghostty, and Warp all open in the repository folder; Terminal.app, iTerm2, Ghostty, and Warp open it as a new tab when a window is already open."
     }
   ],
   "dependencies": {

@@ -44,7 +44,7 @@ Reponizer works out of the box if your repositories live in `~/repos` in a `host
 - **Push-to-Create Hosts** — comma-separated hosts (alias or real host) that create a repository when the first push arrives, such as `gitlab.com` or a self-hosted GitLab; new repositories and forks there are pushed right away
 - **Upstream Remote** — the remote name that marks a repo as a fork (default `upstream`)
 - **Default Namespaces** — comma-separated `host=namespace` pairs preselecting where your forks and new repositories go, e.g. `gitlab.com=me/subgroup, github.com=MyUser`
-- **Editor / Terminal** — the apps used by the open actions; besides Terminal.app and iTerm2, terminals like kitty, Alacritty, WezTerm, Ghostty, and Warp open directly in the repository folder
+- **Editor / Terminal** — the apps used by the open actions; besides Terminal.app and iTerm2, terminals like kitty, Alacritty, WezTerm, Ghostty, and Warp open directly in the repository folder. Terminal.app, iTerm2, Ghostty, and Warp open it as a new tab when a window is already open, the others in a new window
 
 ## Commands
 

@@ -1,5 +1,9 @@
 # Reponizer Changelog
 
+## [Terminal Tabs] - {PR_MERGE_DATE}
+
+- Open in Terminal (`⌘T`) adds a tab to the terminal's open window instead of always opening a new window, in Terminal.app, Ghostty, and Warp (as iTerm2 already did); without an open window, it opens one. kitty, Alacritty, and WezTerm still open a new window
+
 ## [Create Repository] - {PR_MERGE_DATE}
 
 - Create Repository: a new command and list action (`⌘N`) that sets up a new repository as an empty local copy in the right folder, with `origin` pointing at it and one empty initial commit; places the list would not find (inside another repository, deeper than the scan depth) are refused

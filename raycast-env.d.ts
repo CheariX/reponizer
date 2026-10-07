@@ -28,7 +28,7 @@ type ExtensionPreferences = {
   "defaultForkNamespaces"?: string,
   /** Editor - Application used by the “Open in Editor” action. */
   "editorApp"?: import("@raycast/api").Application,
-  /** Terminal - Application used by the “Open in Terminal” action. Terminal.app, iTerm2, kitty, Alacritty, WezTerm, Ghostty, and Warp all open in the repository folder. */
+  /** Terminal - Application used by the “Open in Terminal” action. Terminal.app, iTerm2, kitty, Alacritty, WezTerm, Ghostty, and Warp all open in the repository folder; Terminal.app, iTerm2, Ghostty, and Warp open it as a new tab when a window is already open. */
   "terminalApp"?: import("@raycast/api").Application
 }
 
