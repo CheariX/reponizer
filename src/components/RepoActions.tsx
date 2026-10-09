@@ -19,7 +19,7 @@ import {
 import type { RepoIndexController } from "../hooks/useRepoIndex";
 import { getConfig } from "../lib/config";
 import { hostOf } from "../lib/filters";
-import { ForkPushError, pushToOrigin, syncForkRepo, upstreamCandidates } from "../lib/fork";
+import { pushToOrigin, syncForkRepo, upstreamCandidates } from "../lib/fork";
 import { git } from "../lib/git";
 import { OffloadBlockedError, offloadRepo, restoreOffloaded } from "../lib/offload";
 import {
@@ -36,8 +36,8 @@ import {
 } from "../lib/ops";
 import {
   convertProtocol,
-  createRepoUrl,
   expectedOriginFor,
+  hostWebUrl,
   protocolOf,
   relativePathForUrl,
   webUrlFor,
@@ -260,14 +260,12 @@ function ForkActions({ entry, ctl }: ActionContext) {
       try {
         await pushToOrigin(repo);
       } catch (error) {
-        if (error instanceof ForkPushError) {
-          const createUrl = createRepoUrl(error.targetUrl);
-          throw new OperationFailure(
-            error.message,
-            createUrl ? { title: "Create the Repository", onAction: () => open(createUrl) } : undefined,
-          );
-        }
-        throw error;
+        // Most likely the repository does not exist on the host yet.
+        const hostUrl = repo.origin && hostWebUrl(repo.origin.fetchUrl);
+        throw new OperationFailure(
+          errorMessage(error),
+          hostUrl ? { title: "Open Host in Browser", onAction: () => open(hostUrl) } : undefined,
+        );
       }
       await ctl.reconcile(repo.fullPath);
       return "Pushed";

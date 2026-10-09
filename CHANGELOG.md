@@ -1,12 +1,20 @@
 # Reponizer Changelog
 
+## [Terminal Tabs] - {PR_MERGE_DATE}
+
+- Open in Terminal (`⌘T`) adds a tab to the terminal's open window instead of always opening a new window, in Terminal.app, Ghostty, and Warp (as iTerm2 already did); without an open window, it opens one. kitty, Alacritty, and WezTerm still open a new window
+
 ## [Create Repository] - {PR_MERGE_DATE}
 
-- Create Repository: a new command and list action (`⌘N`) that creates a repository on its host together with an empty local copy in the right folder; an empty initial commit is pushed so the branch tracks `origin` from the start
-- The first push creates the repository on the host (GitLab and Gitea create a private project); GitHub repositories are created as private or public with the GitHub CLI (`gh`), falling back to the push without it. When the host refuses, the local copy is kept and the host's "new repository" page (prefilled on GitHub) is one click away
+- Create Repository: a new command and list action (`⌘N`) that sets up a new repository as an empty local copy in the right folder, with `origin` pointing at it and one empty initial commit; places the list would not find (inside another repository, deeper than the scan depth) are refused
+- Every host works the same: hosts listed in the new "Push-to-Create Hosts" preference are pushed right away; anywhere else, or when that fails, you create the empty repository on the host's website (one click away) and push with Publish Branch
+- For GitHub targets, a "GitHub CLI" checkbox opts in to creating the repository as private or public with the GitHub CLI (`gh`) and pushing right away
+- Fork to… and Clone as Fork follow the same rules and push with Push to Origin; with the GitHub CLI opted into, forking someone else's GitHub repository makes a real GitHub fork. Forking a GitHub repository you already have a fork of stops with a message and changes nothing
+- Create and fork both check the host first: a repository with commits at the target stops them before anything changes, and an existing empty repository is simply pushed to
 - Publish Branch: push a branch that has never been pushed to `origin` and set it to track the pushed branch
-- The "Create the Repository" link offered when a fork cannot be pushed to GitHub now prefills the owner and name
+- The notifications of Create Repository, Fork to…, and Push to Origin open the host's website to create a repository by hand instead of guessing its "new repository" page
 - The "Default Fork Namespaces" preference is now "Default Namespaces" and also preselects the namespace for new repositories
+- Fixed: forking with “Keep the original local copy” and “All Branches and Tags” now also pushes the branches the checkout only tracks from its remote
 - Fixed: searching the namespace field of the fork and clone forms (and the host field of the new create form) now filters the list, and text that matches nothing can be picked as a new namespace
 
 ## [Git Error Fixes] - {PR_MERGE_DATE}

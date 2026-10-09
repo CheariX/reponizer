@@ -1,6 +1,6 @@
 import gitUrlParse from "git-url-parse";
 import { getHostRules } from "./config";
-import type { Protocol, RemoteCheck, RemoteInfo, Visibility } from "./types";
+import type { Protocol, RemoteCheck, RemoteInfo } from "./types";
 
 /**
  * Canonical folder-space form of a remote host: lowercased, with the configured
@@ -83,20 +83,12 @@ export function webUrlFor(url: string): string | undefined {
 }
 
 /**
- * Page where the repository can be created by hand, for hosts without push-to-create.
- * GitLab and Gitea create the project on first push; GitHub does not, but its form can be
- * prefilled with owner, name, and visibility.
+ * Website of the host a remote lives on, where the user creates a repository by hand. Deliberately
+ * only the host: every platform keeps its "new repository" page somewhere else.
  */
-export function createRepoUrl(targetUrl: string, visibility?: Visibility): string | undefined {
-  const parsed = parseRemoteUrl(targetUrl);
-  if (!parsed) return undefined;
-  if (parsed.host.toLowerCase() === "github.com") {
-    const [owner, ...rest] = parsed.path.split("/");
-    const params = new URLSearchParams({ owner, name: rest.join("/") });
-    if (visibility) params.set("visibility", visibility);
-    return `https://github.com/new?${params}`;
-  }
-  return `https://${parsed.host}/projects/new`;
+export function hostWebUrl(url: string): string | undefined {
+  const parsed = parseRemoteUrl(url);
+  return parsed && `https://${parsed.host}`;
 }
 
 /** Relative install path (host/owner/repo, alias-space host) a remote URL maps to inside the repos root. */

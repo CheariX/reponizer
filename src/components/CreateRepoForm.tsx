@@ -1,12 +1,21 @@
-import { Action, ActionPanel, Clipboard, Form, Icon, Toast, open, showToast } from "@raycast/api";
+import { Action, ActionPanel, Clipboard, Form, Icon, Toast, showToast } from "@raycast/api";
 import { useMemo, useRef, useState } from "react";
 import { useRepoTarget } from "../hooks/useRepoTarget";
+import { showRemoteOutcome } from "./remoteOutcome";
 import { targetDropdownItems } from "./TargetDropdownItems";
 import { getConfig } from "../lib/config";
-import { creationMethodFor, executeCreate, planCreate, type CreateOutcome, type CreatePlan } from "../lib/create";
-import { primaryHost } from "../lib/targets";
+import { executeCreate, planCreate } from "../lib/create";
+import { creationMethodFor, isGitHubHost, type CreationMethod, type RemoteOutcome } from "../lib/hosting";
+import { placementProblem, primaryHost } from "../lib/targets";
 import type { RepoEntry, Visibility } from "../lib/types";
 import { errorDetails, errorMessage } from "../lib/util";
+
+const CREATED_BY: Record<CreationMethod, string> = {
+  "github-cli":
+    "The GitHub CLI (gh repo create), then the push — if gh fails, you create it on GitHub and use “Publish Branch”",
+  push: "Pushing the initial commit (a push-to-create host) — if the host refuses, you create it there and use “Publish Branch”",
+  manual: "You, on the host's website — then “Publish Branch” pushes the local copy",
+};
 
 interface CreateRepoFormProps {
   entries: RepoEntry[];
@@ -25,10 +34,15 @@ export function CreateRepoForm({ entries, sourceHost, initialName, navigationTit
 
   const [name, setName] = useState(initialName?.trim() ?? "");
   const [visibility, setVisibility] = useState<Visibility>("private");
+  const [useGitHubCli, setUseGitHubCli] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [nameError, setNameError] = useState<string>();
+  // isLoading does not disable the submit action, and state lags a render behind: a quick second
+  // submit would race the first, and its rollback could remove the folder the first one is using.
+  const inFlight = useRef(false);
 
-  const viaGitHub = creationMethodFor(target.host) === "github-cli";
+  const onGitHub = isGitHubHost(target.host);
+  const method = creationMethodFor(target.host, useGitHubCli);
 
   const plan = useMemo(
     () =>
@@ -38,35 +52,39 @@ export function CreateRepoForm({ entries, sourceHost, initialName, navigationTit
         name,
         protocol: config.defaultProtocol,
         visibility,
+        useGitHubCli,
       }),
-    [config, target.host, target.namespace, name, visibility],
+    [config, target.host, target.namespace, name, visibility, useGitHubCli],
   );
 
-  const taken = plan ? entries.some((entry) => entry.relativePath === plan.relativePath) : false;
+  const problem = plan && placementProblem(config, entries, plan.relativePath);
 
   const submit = async () => {
+    if (inFlight.current) return;
     if (!plan) {
       setNameError(
-        viaGitHub
+        onGitHub
           ? "Pick a host and a single user or organization, and enter a repository name."
           : "Pick a host and namespace, and enter a repository name.",
       );
       return;
     }
-    if (taken) {
-      setNameError(`${plan.relativePath} already exists.`);
+    if (problem) {
+      setNameError(problem);
       return;
     }
 
+    inFlight.current = true;
     setIsWorking(true);
     const toast = await showToast({ style: Toast.Style.Animated, title: `Creating ${plan.relativePath}…` });
-    let outcome: CreateOutcome;
+    let outcome: RemoteOutcome;
     try {
       outcome = await executeCreate(config.root, plan, (step) => {
         toast.message = step;
       });
     } catch (error) {
       // Nothing is left behind locally, so the form stays open for another attempt.
+      inFlight.current = false;
       setIsWorking(false);
       toast.style = Toast.Style.Failure;
       toast.title = "Could not create the repository";
@@ -74,7 +92,14 @@ export function CreateRepoForm({ entries, sourceHost, initialName, navigationTit
       toast.primaryAction = { title: "Copy Error", onAction: () => Clipboard.copy(errorDetails(error)) };
       return;
     }
-    showOutcome(toast, plan, outcome);
+    showRemoteOutcome(toast, outcome, {
+      ...plan,
+      verb: "Created",
+      doneTitle: "Repository created",
+      // A README or license would give the host its own history, which "Publish Branch" cannot push onto.
+      createHint: `Create an empty repository ${plan.repoPath} on ${plan.remoteHost}`,
+      pushAction: "Publish Branch",
+    });
     await onCreated(plan.destination);
   };
 
@@ -109,7 +134,7 @@ export function CreateRepoForm({ entries, sourceHost, initialName, navigationTit
         onChange={target.setNamespace}
         placeholder="Search or type a namespace"
         info={
-          viaGitHub
+          onGitHub
             ? "Your GitHub user or one of your organizations. Type to use one that does not exist locally yet."
             : "Owner, group, or subgroup below the host. Type to use one that does not exist locally yet."
         }
@@ -128,7 +153,17 @@ export function CreateRepoForm({ entries, sourceHost, initialName, navigationTit
         }}
         autoFocus
       />
-      {viaGitHub && (
+      {onGitHub && (
+        <Form.Checkbox
+          id="useGitHubCli"
+          title="GitHub CLI"
+          label="Create it on GitHub with the GitHub CLI (gh)"
+          value={useGitHubCli}
+          onChange={setUseGitHubCli}
+          info="Creates the repository with your gh login and pushes right away. Off: you create it on GitHub yourself, then use “Publish Branch”."
+        />
+      )}
+      {method === "github-cli" && (
         <Form.Dropdown
           id="visibility"
           title="Visibility"
@@ -142,52 +177,8 @@ export function CreateRepoForm({ entries, sourceHost, initialName, navigationTit
       <Form.Separator />
       <Form.Description title="Location" text={plan?.relativePath ?? "—"} />
       <Form.Description title="Origin" text={plan?.url ?? "—"} />
-      <Form.Description
-        title="Created By"
-        text={
-          viaGitHub
-            ? "The GitHub CLI (gh repo create), else a push — if both fail, you create it on GitHub"
-            : "Pushing the empty initial commit (GitLab and Gitea create a private project) — if the host refuses, you create it there"
-        }
-      />
-      {taken && <Form.Description title="⚠︎" text="A repository already exists at that location." />}
+      <Form.Description title="Created By" text={CREATED_BY[method]} />
+      {problem && <Form.Description title="⚠︎" text={problem} />}
     </Form>
   );
-}
-
-function showOutcome(toast: Toast, plan: CreatePlan, outcome: CreateOutcome): void {
-  switch (outcome.state) {
-    case "published":
-      toast.style = Toast.Style.Success;
-      toast.title = "Repository created";
-      toast.message = plan.relativePath;
-      return;
-    case "needs-remote": {
-      const { createUrl, cliProblem, pushError } = outcome;
-      // On GitHub the push is only the fallback and bound to fail; why gh did not work is the news.
-      const reason = (cliProblem ?? errorMessage(pushError)).replace(/\.?$/, ".");
-      const copyError: Toast.ActionOptions = {
-        title: "Copy Error",
-        onAction: () => Clipboard.copy([cliProblem, errorDetails(pushError)].filter(Boolean).join("\n\n")),
-      };
-      toast.style = Toast.Style.Failure;
-      toast.title = `Created locally, but not on ${plan.remoteHost}`;
-      toast.message = `${reason} Create the repository there, then use “Publish Branch”.`;
-      if (createUrl) {
-        toast.primaryAction = { title: "Create the Repository", onAction: () => open(createUrl) };
-        toast.secondaryAction = copyError;
-      } else {
-        toast.primaryAction = copyError;
-      }
-      return;
-    }
-    case "push-failed": {
-      const { error } = outcome;
-      toast.style = Toast.Style.Failure;
-      toast.title = "Created on GitHub, but the push failed";
-      toast.message = `${errorMessage(error)} — retry with “Publish Branch”.`;
-      toast.primaryAction = { title: "Copy Error", onAction: () => Clipboard.copy(errorDetails(error)) };
-      return;
-    }
-  }
 }

@@ -10,6 +10,7 @@ interface Preferences {
   networkConcurrency?: string;
   hostAliases?: string;
   hostOnlyHosts?: string;
+  pushToCreateHosts?: string;
   upstreamRemoteName?: string;
   // Named before repository creation shared it; renaming the key would drop saved values.
   defaultForkNamespaces?: string;
@@ -43,6 +44,8 @@ export interface HostRules {
   realToAlias: Map<string, string>;
   /** Canonical (alias-space) hosts whose repos are compared by host identity only. */
   hostOnly: Set<string>;
+  /** Canonical (alias-space) hosts that create a repository when the first push arrives. */
+  pushToCreate: Set<string>;
 }
 
 // Same shape as the remote-name guard: no leading dash, so these values can never be read as git flags.
@@ -57,7 +60,11 @@ function splitList(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
-function parseHostRules(aliasesRaw: string | undefined, hostOnlyRaw: string | undefined): HostRules {
+function parseHostRules(
+  aliasesRaw: string | undefined,
+  hostOnlyRaw: string | undefined,
+  pushToCreateRaw: string | undefined,
+): HostRules {
   const aliasToReal = new Map<string, string>();
   const realToAlias = new Map<string, string>();
   for (const pair of splitList(aliasesRaw)) {
@@ -69,22 +76,27 @@ function parseHostRules(aliasesRaw: string | undefined, hostOnlyRaw: string | un
     if (!aliasToReal.has(alias)) aliasToReal.set(alias, real);
     if (!realToAlias.has(real)) realToAlias.set(real, alias);
   }
-  const hostOnly = new Set<string>();
-  for (const entry of splitList(hostOnlyRaw)) {
-    if (!HOST_TOKEN.test(entry)) continue;
-    hostOnly.add(realToAlias.get(entry) ?? entry); // accept alias or real host; store in alias space
-  }
-  return { aliasToReal, realToAlias, hostOnly };
+  // Accept alias or real host; store in alias space.
+  const hostSet = (raw: string | undefined) =>
+    new Set(
+      splitList(raw)
+        .filter((entry) => HOST_TOKEN.test(entry))
+        .map((entry) => realToAlias.get(entry) ?? entry),
+    );
+  return { aliasToReal, realToAlias, hostOnly: hostSet(hostOnlyRaw), pushToCreate: hostSet(pushToCreateRaw) };
 }
 
 let hostRulesCache: { key: string; rules: HostRules } | undefined;
 
-/** Parsed host alias / host-only preferences; memoized per raw preference value. */
+/** Parsed host alias / host-only / push-to-create preferences; memoized per raw preference value. */
 export function getHostRules(): HostRules {
   const prefs = getPreferenceValues<Preferences>();
-  const key = `${prefs.hostAliases ?? ""}\u0000${prefs.hostOnlyHosts ?? ""}`;
+  const key = [prefs.hostAliases, prefs.hostOnlyHosts, prefs.pushToCreateHosts].map((v) => v ?? "").join("\u0000");
   if (hostRulesCache?.key !== key) {
-    hostRulesCache = { key, rules: parseHostRules(prefs.hostAliases, prefs.hostOnlyHosts) };
+    hostRulesCache = {
+      key,
+      rules: parseHostRules(prefs.hostAliases, prefs.hostOnlyHosts, prefs.pushToCreateHosts),
+    };
   }
   return hostRulesCache.rules;
 }

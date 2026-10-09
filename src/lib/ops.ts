@@ -116,8 +116,13 @@ export async function prepareDestination(destination: string, relativePath: stri
   let existing: string[];
   try {
     existing = await fs.readdir(destination);
-  } catch {
-    return true; // destination does not exist yet — the normal case
+  } catch (error) {
+    // Only a missing folder counts as new: a rollback removes new folders, and a file (ENOTDIR)
+    // or an unreadable folder at this path is not ours to remove.
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") return true;
+    if (code === "ENOTDIR") throw new Error(`Destination already exists: ${destination}`);
+    throw error;
   }
   const meaningful = existing.filter((n) => n !== ".DS_Store");
   if (meaningful.length === 1 && meaningful[0] === OFFLOAD_FILE) {
@@ -153,15 +158,21 @@ export async function pruneEmptyParents(root: string, from: string): Promise<voi
   }
 }
 
+/** relocateRepo only moves into a path that does not exist at all. */
+export async function assertRelocationTarget(target: string): Promise<void> {
+  try {
+    await fs.stat(target);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+    throw error;
+  }
+  throw new Error(`Target already exists: ${target}`);
+}
+
 /** Move a repo to the location its origin URL implies. Returns the new absolute path. */
 export async function relocateRepo(root: string, repo: Repo, targetRelativePath: string): Promise<string> {
   const target = path.join(root, targetRelativePath);
-  try {
-    await fs.stat(target);
-    throw new Error(`Target already exists: ${target}`);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-  }
+  await assertRelocationTarget(target);
   await fs.mkdir(path.dirname(target), { recursive: true });
   await fs.rename(repo.fullPath, target);
   await pruneEmptyParents(root, repo.fullPath);

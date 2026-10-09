@@ -1,33 +1,17 @@
-import {
-  Action,
-  ActionPanel,
-  Clipboard,
-  Form,
-  Icon,
-  LaunchProps,
-  Toast,
-  open,
-  popToRoot,
-  showToast,
-} from "@raycast/api";
+import { Action, ActionPanel, Clipboard, Form, Icon, LaunchProps, Toast, popToRoot, showToast } from "@raycast/api";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { forkCreatedBy, forkFormFields, forkWording } from "./components/ForkView";
+import { showRemoteOutcome } from "./components/remoteOutcome";
 import { targetDropdownItems } from "./components/TargetDropdownItems";
 import { useRepoTarget } from "./hooks/useRepoTarget";
 import { readCachedIndex, reconcilePath } from "./lib/cache";
 import { getConfig } from "./lib/config";
-import {
-  ForkPushError,
-  PushScope,
-  currentBranch,
-  materializeTrackingBranches,
-  planFork,
-  pushFork,
-  rewireForFork,
-} from "./lib/fork";
+import { PushScope, currentBranch, forkFreshCopy, planFork } from "./lib/fork";
 import { cloneRepo, planClone } from "./lib/ops";
-import { createRepoUrl, protocolOf } from "./lib/remotes";
-import type { Protocol } from "./lib/types";
-import { errorMessage } from "./lib/util";
+import { protocolOf } from "./lib/remotes";
+import { placementProblem } from "./lib/targets";
+import type { Protocol, Visibility } from "./lib/types";
+import { errorDetails, errorMessage } from "./lib/util";
 
 type ProtocolChoice = "as-pasted" | Protocol;
 
@@ -40,6 +24,8 @@ export default function Command(props: LaunchProps<{ arguments: { url?: string }
 
   const [fork, setFork] = useState(false);
   const [pushScope, setPushScope] = useState<PushScope>("all");
+  const [visibility, setVisibility] = useState<Visibility>("private");
+  const [useGitHubCli, setUseGitHubCli] = useState(false);
   const index = useRef(readCachedIndex(config.root)).current;
   const entries = useMemo(() => index?.entries ?? [], [index]);
 
@@ -76,21 +62,34 @@ export default function Command(props: LaunchProps<{ arguments: { url?: string }
       protocol: choice === "as-pasted" ? config.defaultProtocol : choice,
       upstreamUrl: plan.url,
       pushScope,
+      visibility,
+      useGitHubCli,
     });
-  }, [fork, plan, config, target.host, target.namespace, choice, pushScope]);
+  }, [fork, plan, config, target.host, target.namespace, choice, pushScope, visibility, useGitHubCli]);
+
+  const forkFields = forkFormFields(target.host, target.namespace, plan?.url, useGitHubCli);
+  const forkProblem = forkPlan && placementProblem(config, entries, forkPlan.targetRelativePath);
+  // A second submit while one runs would race it (see CreateRepoForm).
+  const inFlight = useRef(false);
 
   const submit = async () => {
+    if (inFlight.current) return;
     if (!plan) {
       setUrlError("Enter a git URL or a bare path like github.com/owner/repo.");
       return;
     }
     if (fork && !forkPlan) {
-      setUrlError("Pick a host and namespace for the fork.");
+      setUrlError(forkFields.incompleteError);
+      return;
+    }
+    if (forkProblem) {
+      setUrlError(forkProblem);
       return;
     }
     const destination = forkPlan?.targetDestination ?? plan.destination;
     const relativePath = forkPlan?.targetRelativePath ?? plan.relativePath;
 
+    inFlight.current = true;
     setIsCloning(true);
     const toast = await showToast({ style: Toast.Style.Animated, title: `Cloning ${relativePath}…` });
     try {
@@ -98,28 +97,25 @@ export default function Command(props: LaunchProps<{ arguments: { url?: string }
       if (forkPlan) {
         toast.title = `Forking to ${relativePath}…`;
         const branch = await currentBranch(destination);
-        // Local branches must exist before origin is repointed, otherwise push --all has nothing.
-        if (forkPlan.pushScope === "all") await materializeTrackingBranches(destination, branch);
-        await rewireForFork(destination, forkPlan);
-        await pushFork(destination, forkPlan.pushScope, forkPlan.targetUrl, branch);
+        const outcome = await forkFreshCopy(config.root, destination, forkPlan, branch, (step) => {
+          toast.message = step;
+        });
+        showRemoteOutcome(toast, outcome, forkWording(forkPlan));
+      } else {
+        toast.style = Toast.Style.Success;
+        toast.title = "Cloned";
+        toast.message = relativePath;
       }
       if (index) await reconcilePath(index, destination, config.defaultProtocol);
-      toast.style = Toast.Style.Success;
-      toast.title = forkPlan ? "Forked" : "Cloned";
-      toast.message = relativePath;
       await popToRoot();
     } catch (error) {
       if (index) await reconcilePath(index, destination, config.defaultProtocol).catch(() => undefined);
       toast.style = Toast.Style.Failure;
+      toast.title = forkPlan ? "Fork failed" : "Clone failed";
       toast.message = errorMessage(error);
-      if (error instanceof ForkPushError) {
-        const createUrl = createRepoUrl(error.targetUrl);
-        toast.title = "Cloned, but the fork could not be pushed";
-        if (createUrl) toast.primaryAction = { title: "Create the Repository", onAction: () => open(createUrl) };
-      } else {
-        toast.title = "Clone failed";
-      }
+      toast.primaryAction = { title: "Copy Error", onAction: () => Clipboard.copy(errorDetails(error)) };
     } finally {
+      inFlight.current = false;
       setIsCloning(false);
     }
   };
@@ -179,10 +175,14 @@ export default function Command(props: LaunchProps<{ arguments: { url?: string }
           id="host"
           title="Fork Host"
           value={target.host}
+          filtering={false}
+          onSearchTextChange={target.setHostQuery}
           onChange={(value) => {
             hostTouched.current = true;
             target.setHost(value);
           }}
+          placeholder="Search or type a host"
+          info="Type to use a host that has no repositories under the root yet."
         >
           {targetDropdownItems(target.hostOptions, Icon.Globe, "Select a Host")}
         </Form.Dropdown>
@@ -196,12 +196,22 @@ export default function Command(props: LaunchProps<{ arguments: { url?: string }
           onSearchTextChange={target.setNamespaceQuery}
           onChange={target.setNamespace}
           placeholder="Search or type a namespace"
-          info="Owner, group, or subgroup below the host. Type to use one that does not exist locally yet."
+          info={forkFields.namespaceInfo}
         >
           {targetDropdownItems(target.namespaceOptions, Icon.Person, "Select a Namespace")}
         </Form.Dropdown>
       )}
-      {fork && (
+      {fork && forkFields.showGitHubCli && (
+        <Form.Checkbox
+          id="useGitHubCli"
+          title="GitHub CLI"
+          label={forkFields.gitHubCliLabel}
+          value={useGitHubCli}
+          onChange={setUseGitHubCli}
+          info={forkFields.gitHubCliInfo}
+        />
+      )}
+      {fork && forkFields.showPushScope && (
         <Form.Dropdown
           id="pushScope"
           title="Push"
@@ -213,10 +223,23 @@ export default function Command(props: LaunchProps<{ arguments: { url?: string }
           <Form.Dropdown.Item value="none" title="Nothing — Set Up Remotes Only" />
         </Form.Dropdown>
       )}
+      {fork && forkFields.showVisibility && (
+        <Form.Dropdown
+          id="visibility"
+          title="Visibility"
+          value={visibility}
+          onChange={(value) => setVisibility(value as Visibility)}
+        >
+          <Form.Dropdown.Item value="private" title="Private" icon={Icon.Lock} />
+          <Form.Dropdown.Item value="public" title="Public" icon={Icon.Globe} />
+        </Form.Dropdown>
+      )}
       <Form.Separator />
       <Form.Description title="Destination" text={location} />
       <Form.Description title={fork ? "New Origin" : "Clone From"} text={originUrl ?? "—"} />
       {fork && <Form.Description title={config.upstreamRemoteName} text={plan?.url ?? "—"} />}
+      {fork && <Form.Description title="Created By" text={forkCreatedBy(forkPlan)} />}
+      {forkProblem && <Form.Description title="⚠︎" text={forkProblem} />}
       {!fork && <Form.Description title="Protocol" text={effectiveProtocol ?? "—"} />}
     </Form>
   );

@@ -36,7 +36,7 @@
       "name": "create-repo",
       "title": "Create Repository",
       "subtitle": "Reponizer",
-      "description": "Create a new repository on its host and an empty local copy in the folder structure.",
+      "description": "Create a new repository in the folder structure, ready to publish to its host.",
       "mode": "view",
       "arguments": [
         {
@@ -156,6 +156,13 @@
       "description": "Comma-separated hosts (alias or real host) whose repos are audited by host only — the folder path below the host may differ from the remote path (e.g. Overleaf’s opaque project IDs)."
     },
     {
+      "name": "pushToCreateHosts",
+      "type": "textfield",
+      "required": false,
+      "title": "Push-to-Create Hosts",
+      "description": "Comma-separated hosts (alias or real host) that create a repository when the first push arrives, e.g. “gitlab.com”. New repositories and forks there are pushed right away; on other hosts you create them on the website first. GitHub creates nothing on push; tick “GitHub CLI” in the form instead."
+    },
+    {
       "name": "upstreamRemoteName",
       "type": "textfield",
       "required": false,
@@ -184,7 +191,7 @@
       "required": false,
       "default": "com.apple.Terminal",
       "title": "Terminal",
-      "description": "Application used by the “Open in Terminal” action. Terminal.app, iTerm2, kitty, Alacritty, WezTerm, Ghostty, and Warp all open in the repository folder."
+      "description": "Application used by the “Open in Terminal” action. Terminal.app, iTerm2, kitty, Alacritty, WezTerm, Ghostty, and Warp all open in the repository folder; Terminal.app, iTerm2, Ghostty, and Warp open it as a new tab when a window is already open."
     }
   ],
   "dependencies": {

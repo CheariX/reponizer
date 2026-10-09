@@ -20,13 +20,15 @@ type ExtensionPreferences = {
   "hostAliases"?: string,
   /** Host-Only Comparison - Comma-separated hosts (alias or real host) whose repos are audited by host only — the folder path below the host may differ from the remote path (e.g. Overleaf’s opaque project IDs). */
   "hostOnlyHosts"?: string,
+  /** Push-to-Create Hosts - Comma-separated hosts (alias or real host) that create a repository when the first push arrives, e.g. “gitlab.com”. New repositories and forks there are pushed right away; on other hosts you create them on the website first. GitHub creates nothing on push; tick “GitHub CLI” in the form instead. */
+  "pushToCreateHosts"?: string,
   /** Upstream Remote - Name of the remote that marks a repository as a fork and is used by “Sync from Upstream”. */
   "upstreamRemoteName": string,
   /** Default Namespaces - Comma-separated host=namespace pairs preselected when forking or creating a repository, e.g. “gitlab.com=me/subgroup, github.com=MyUser”. Switching the host in a form picks that host’s namespace; hosts without an entry start empty. */
   "defaultForkNamespaces"?: string,
   /** Editor - Application used by the “Open in Editor” action. */
   "editorApp"?: import("@raycast/api").Application,
-  /** Terminal - Application used by the “Open in Terminal” action. Terminal.app, iTerm2, kitty, Alacritty, WezTerm, Ghostty, and Warp all open in the repository folder. */
+  /** Terminal - Application used by the “Open in Terminal” action. Terminal.app, iTerm2, kitty, Alacritty, WezTerm, Ghostty, and Warp all open in the repository folder; Terminal.app, iTerm2, Ghostty, and Warp open it as a new tab when a window is already open. */
   "terminalApp"?: import("@raycast/api").Application
 }
 

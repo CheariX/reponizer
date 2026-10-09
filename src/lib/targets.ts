@@ -120,3 +120,22 @@ export function planTarget(config: Config, input: TargetInput): PlannedTarget | 
   if (!relativePath) return undefined;
   return { relativePath, destination: path.join(config.root, relativePath), url };
 }
+
+/**
+ * Why a new repository must not go to `relativePath`, judged from the index: the place is taken, it
+ * lies inside another repository or offloaded placeholder, or it is deeper than the scan reaches. The
+ * scan stops at the first two and never gets to the last, so the repository would drop out of the list
+ * on the next rescan. Paths compare case-insensitively, like the default macOS file system.
+ */
+export function placementProblem(config: Config, entries: RepoEntry[], relativePath: string): string | undefined {
+  const wanted = relativePath.toLowerCase();
+  for (const entry of entries) {
+    const existing = entry.relativePath.toLowerCase();
+    if (wanted === existing) return `${entry.relativePath} already exists.`;
+    if (wanted.startsWith(`${existing}/`)) return `That would be inside ${entry.relativePath}.`;
+  }
+  if (relativePath.split("/").length > config.maxDepth) {
+    return `That is deeper than the scan depth (${config.maxDepth}) — raise “Max Scan Depth” first.`;
+  }
+  return undefined;
+}
