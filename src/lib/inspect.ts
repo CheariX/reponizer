@@ -43,14 +43,27 @@ export function parseRemoteLines(output: string): RemoteInfo[] {
   return [...byName.values()];
 }
 
+/**
+ * When HEAD last moved, from the mtime of its reflog. Best effort: worktrees and submodules, whose
+ * `.git` is a file, and repos with reflogs disabled yield undefined.
+ */
+async function headReflogTime(fullPath: string): Promise<string | undefined> {
+  try {
+    return (await fs.stat(path.join(fullPath, ".git", "logs", "HEAD"))).mtime.toISOString();
+  } catch {
+    return undefined;
+  }
+}
+
 export async function inspectRepo(root: string, fullPath: string, protocol: Protocol): Promise<Repo> {
   const base = baseFields(root, fullPath);
   try {
-    const [remotesOut, statusOut, stashOut, lastCommitAt] = await Promise.all([
+    const [remotesOut, statusOut, stashOut, lastCommitAt, headMovedAt] = await Promise.all([
       git(fullPath, ["remote", "-v"]),
       git(fullPath, ["status", "--porcelain=v2", "--branch"]),
       git(fullPath, ["stash", "list", "--format=%gd"]),
       git(fullPath, ["log", "-1", "--format=%cI"]).catch(() => undefined), // fails on empty repos
+      headReflogTime(fullPath),
     ]);
     const remotes = parseRemoteLines(remotesOut);
     const stashes = stashOut ? stashOut.split("\n").filter(Boolean).length : 0;
@@ -73,6 +86,7 @@ export async function inspectRepo(root: string, fullPath: string, protocol: Prot
       remoteCheck: checkRemotes(base.relativePath, remotes, protocol),
       fork,
       lastCommitAt: lastCommitAt || undefined,
+      headMovedAt,
     };
   } catch (error) {
     return {

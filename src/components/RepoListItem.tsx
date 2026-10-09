@@ -1,5 +1,7 @@
 import { Color, Icon, List } from "@raycast/api";
 import { protocolOf } from "../lib/remotes";
+import type { SortOrder } from "../lib/sorting";
+import { lastActivityOf } from "../lib/sorting";
 import { totalChanges } from "../lib/status";
 import type { ForkInfo, OffloadedRepo, RemoteCheckState, Repo, RepoEntry } from "../lib/types";
 import { formatBytes, relativeTime } from "../lib/util";
@@ -143,6 +145,7 @@ function RepoDetail({ entry }: { entry: RepoEntry }) {
           )}
           <Meta.Label title="Size" text={entry.sizeBytes !== undefined ? formatBytes(entry.sizeBytes) : "—"} />
           {entry.lastCommitAt && <Meta.Label title="Last Commit" text={relativeTime(entry.lastCommitAt)} />}
+          {entry.headMovedAt && <Meta.Label title="HEAD Moved" text={relativeTime(entry.headMovedAt)} />}
           {entry.fork && (
             <>
               <Meta.Label title="Fork Of" text={entry.fork.relativePath ?? entry.fork.url} />
@@ -172,13 +175,26 @@ function RepoDetail({ entry }: { entry: RepoEntry }) {
   );
 }
 
+/** Leading accessory for the "Last Activity" order, so the order explains itself. */
+function activityAccessory(entry: RepoEntry): List.Item.Accessory {
+  const activity = lastActivityOf(entry);
+  return {
+    icon: Icon.Clock,
+    text: activity ? relativeTime(activity) : "—",
+    tooltip: entry.kind === "offloaded" ? "Offloaded" : "Last activity (commit, checkout, pull, …)",
+  };
+}
+
 export function RepoListItem(props: {
   entry: RepoEntry;
   ctl: RepoIndexController;
   showDetail: boolean;
   setShowDetail: (value: boolean) => void;
+  sortOrder: SortOrder;
+  setSortOrder: (order: SortOrder) => void;
 }) {
-  const { entry, ctl, showDetail, setShowDetail } = props;
+  const { entry, ctl, showDetail, sortOrder } = props;
+  const accessories = entry.kind === "repo" ? repoAccessories(entry) : offloadedAccessories(entry);
   const icon =
     entry.kind === "offloaded"
       ? { source: Icon.Cloud, tintColor: Color.Blue }
@@ -190,12 +206,14 @@ export function RepoListItem(props: {
       id={entry.relativePath}
       icon={icon}
       title={entry.name}
+      // A flat order drops the host/owner sections, so the group moves next to the name.
+      subtitle={sortOrder === "path" ? undefined : entry.group}
       keywords={entry.relativePath.split("/")}
       accessories={
-        showDetail ? undefined : entry.kind === "repo" ? repoAccessories(entry) : offloadedAccessories(entry)
+        showDetail ? undefined : sortOrder === "activity" ? [activityAccessory(entry), ...accessories] : accessories
       }
       detail={showDetail ? <RepoDetail entry={entry} /> : undefined}
-      actions={<RepoActions entry={entry} ctl={ctl} showDetail={showDetail} setShowDetail={setShowDetail} />}
+      actions={<RepoActions {...props} ctl={ctl} />}
     />
   );
 }

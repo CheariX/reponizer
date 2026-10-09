@@ -4,7 +4,7 @@ Reponizer keeps a large, structured git repository folder organized. It works wi
 
 ## Features
 
-- **Hierarchical overview** — all repositories grouped by host and owner, instantly searchable
+- **Hierarchical overview** — all repositories grouped by host and owner, instantly searchable; or sorted by last activity, name, or size (`⌥⌘S`)
 - **Repo status at a glance** — branch, ahead/behind counts, uncommitted changes, merge conflicts, stashes, and size on disk
 - **Remote auditing** — flags repos whose `origin` does not match their location (and repos without any remote), with one-key auto-fix, folder relocation, and duplicate detection
 - **Remote management** — add, edit, rename, and delete remotes; switch any remote between SSH and HTTPS

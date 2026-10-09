@@ -1,9 +1,11 @@
-import { Action, ActionPanel, Icon, List, openExtensionPreferences } from "@raycast/api";
+import { Action, ActionPanel, Cache, Icon, List, openExtensionPreferences } from "@raycast/api";
 import { useMemo, useState } from "react";
 import { RepoListItem } from "./components/RepoListItem";
 import { useRepoIndex } from "./hooks/useRepoIndex";
 import type { Filter } from "./lib/filters";
 import { hostOf, matchesFilter, ownerOf } from "./lib/filters";
+import type { SortOrder } from "./lib/sorting";
+import { isSortOrder, SORT_ORDERS, sortEntries } from "./lib/sorting";
 import type { RepoEntry } from "./lib/types";
 import { pluralize } from "./lib/util";
 
@@ -42,17 +44,35 @@ function FilterDropdown({
   );
 }
 
+const viewCache = new Cache();
+const SORT_KEY = "sort-order";
+
+function readSortOrder(): SortOrder {
+  const stored = viewCache.get(SORT_KEY);
+  return isSortOrder(stored) ? stored : "path";
+}
+
 export default function Command() {
   const ctl = useRepoIndex();
   const [filter, setFilter] = useState<Filter>("all");
   const [showDetail, setShowDetail] = useState(false);
+  const [sortOrder, setSortOrderState] = useState<SortOrder>(readSortOrder);
+  const setSortOrder = (order: SortOrder) => {
+    viewCache.set(SORT_KEY, order);
+    setSortOrderState(order);
+  };
 
   const entries = useMemo(() => ctl.index?.entries ?? [], [ctl.index]);
   const hosts = useMemo(() => [...new Set(entries.map(hostOf))].sort(), [entries]);
   const owners = useMemo(() => [...new Set(entries.map(ownerOf).filter(Boolean))].sort(), [entries]);
 
-  const sections = useMemo(() => {
+  const sections = useMemo((): [string, RepoEntry[]][] => {
     const filtered = entries.filter((entry) => matchesFilter(entry, filter));
+    if (sortOrder !== "path") {
+      if (filtered.length === 0) return [];
+      const title = SORT_ORDERS.find((order) => order.value === sortOrder)?.title;
+      return [[`By ${title}`, sortEntries(filtered, sortOrder)]];
+    }
     const byGroup = new Map<string, RepoEntry[]>();
     for (const entry of filtered) {
       const list = byGroup.get(entry.group) ?? [];
@@ -60,7 +80,7 @@ export default function Command() {
       byGroup.set(entry.group, list);
     }
     return [...byGroup.entries()].sort(([a], [b]) => a.localeCompare(b));
-  }, [entries, filter]);
+  }, [entries, filter, sortOrder]);
 
   return (
     <List
@@ -104,6 +124,8 @@ export default function Command() {
               ctl={ctl}
               showDetail={showDetail}
               setShowDetail={setShowDetail}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
             />
           ))}
         </List.Section>

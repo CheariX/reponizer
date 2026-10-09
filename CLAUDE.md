@@ -71,13 +71,15 @@ src/
     offload.ts          Offload/restore/placeholder logic + safety checks
     exportImport.ts     Export schema, import planning, LocalStorage snapshot
     filters.ts          List filter predicates + attention reasons (shared with menu bar)
+    sorting.ts          List sort orders: grouped "path" (default) or one flat list by last activity
+                        (lastActivityOf), name, or size
     bulkCommand.ts      Toast-driven driver shared by fetch-all/pull-all
 ```
 
 ## Data flow
 
 1. `scan.findRepoDirs` walks the root (skipping hidden dirs and `node_modules`, stopping at repos) → repo dirs + offloaded dirs.
-2. `inspect.inspectRepo` runs `git remote -v`, `status --porcelain=v2 --branch`, `stash list`, `log -1` in parallel (concurrency 8 across repos) → `Repo`. Failures produce an entry with `error` set — never a dropped repo. It then calls `fork.inspectFork`, which returns early unless the repo carries the configured upstream remote (`config.upstreamRemoteName`, pointing somewhere other than origin); only then does it pay for resolving an upstream ref (`rev-parse` over branch/HEAD/main/master) and `rev-list --left-right --count HEAD...<ref>`. Both steps are best effort — a never-fetched upstream still yields a `ForkInfo`, just without `ref`/`ahead`/`behind`.
+2. `inspect.inspectRepo` runs `git remote -v`, `status --porcelain=v2 --branch`, `stash list`, `log -1` in parallel (concurrency 8 across repos) → `Repo`. Failures produce an entry with `error` set — never a dropped repo. It then calls `fork.inspectFork`, which returns early unless the repo carries the configured upstream remote (`config.upstreamRemoteName`, pointing somewhere other than origin); only then does it pay for resolving an upstream ref (`rev-parse` over branch/HEAD/main/master) and `rev-list --left-right --count HEAD...<ref>`. Both steps are best effort — a never-fetched upstream still yields a `ForkInfo`, just without `ref`/`ahead`/`behind`. `headMovedAt` is the mtime of `.git/logs/HEAD` (no git call; absent when `.git` is a file), which "Last Activity" combines with `lastCommitAt`.
 3. `inspect.buildIndex` assembles entries, sorts by relative path, marks duplicates (same normalized origin), and attaches sizes (`du -sk`, batched, reused from the previous index on fast refreshes).
 4. `cache.ts` persists the `RepoIndex` as JSON in the Raycast `Cache`, keyed `index:v<CACHE_VERSION>:<root>`. **Bump `CACHE_VERSION` whenever `RepoIndex`/`RepoEntry` shapes change.**
 5. `useRepoIndex` renders the cached index immediately, rescans in the background on mount (reusing sizes), and exposes `refresh` / `reconcile(fullPath)` / `refreshEntries(paths)` so actions update only what they touched. no-view commands write the same cache via `cache.ts`, so the next list open is fresh.
@@ -105,6 +107,7 @@ src/
 ## Extension points
 
 - **New list filter**: add a value to `Filter` + a branch in `matchesFilter` (`lib/filters.ts`) and an item in the dropdown (`search-repos.tsx`).
+- **New sort order**: add a value to `SortOrder` + `SORT_ORDERS` and a branch in `sortEntries` (`lib/sorting.ts`); the "Sort by" submenu (`⌥⌘S`, persisted in the `Cache` under `sort-order`) lists it automatically. Every order but `path` renders one flat section with the group as item subtitle.
 - **New per-repo action**: add to the matching section component in `RepoActions.tsx`; use `withToast` + `ctl.reconcile(fullPath)` after mutating.
 - **New bulk operation**: implement an `(repo) => Promise<OpResult>` in `ops.ts` and reuse `runBulkCommand` / `runOnRepos`. Inside the action panel the helper is the module-level `bulkAction(ctl, title, op, select?)` in `RepoActions.tsx`; the optional selector narrows the run to a subset of the healthy repos ("Sync All Forks from Upstream" passes `(repo) => !!repo.fork`).
 - **New entry state on disk**: extend `scan.ts` detection, add a `kind` to `RepoEntry`, bump `CACHE_VERSION`.
