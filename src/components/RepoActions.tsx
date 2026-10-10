@@ -42,6 +42,8 @@ import {
   relativePathForUrl,
   webUrlFor,
 } from "../lib/remotes";
+import type { SortOrder } from "../lib/sorting";
+import { SORT_ORDERS } from "../lib/sorting";
 import { openInTerminal } from "../lib/terminal";
 import type { OffloadedRepo, Protocol, Repo, RepoEntry } from "../lib/types";
 import { describeTransition, errorDetails, errorMessage, formatBytes } from "../lib/util";
@@ -54,6 +56,8 @@ interface ActionContext {
   ctl: RepoIndexController;
   showDetail: boolean;
   setShowDetail: (value: boolean) => void;
+  sortOrder: SortOrder;
+  setSortOrder: (order: SortOrder) => void;
 }
 
 /** Failure that carries its own toast action (e.g. “Copy Failures” with a detailed report). */
@@ -124,7 +128,7 @@ function OpenActions({ entry }: { entry: RepoEntry }) {
   );
 }
 
-function CopyActions({ entry, showDetail, setShowDetail }: ActionContext) {
+function CopyActions({ entry, showDetail, setShowDetail, sortOrder, setSortOrder }: ActionContext) {
   const originUrl = entry.kind === "repo" ? entry.origin?.fetchUrl : entry.originUrl;
   return (
     <ActionPanel.Section title="Info">
@@ -134,6 +138,16 @@ function CopyActions({ entry, showDetail, setShowDetail }: ActionContext) {
         shortcut={{ modifiers: ["cmd"], key: "i" }}
         onAction={() => setShowDetail(!showDetail)}
       />
+      <ActionPanel.Submenu title="Sort by" icon={Icon.Switch} shortcut={{ modifiers: ["opt", "cmd"], key: "s" }}>
+        {SORT_ORDERS.map((order) => (
+          <Action
+            key={order.value}
+            title={order.title}
+            icon={order.value === sortOrder ? Icon.Checkmark : Icon.Circle}
+            onAction={() => setSortOrder(order.value)}
+          />
+        ))}
+      </ActionPanel.Submenu>
       <Action.CopyToClipboard title="Copy Path" content={entry.fullPath} shortcut={Keyboard.Shortcut.Common.Copy} />
       {originUrl && (
         <Action.CopyToClipboard

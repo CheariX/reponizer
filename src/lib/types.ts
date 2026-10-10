@@ -72,6 +72,8 @@ export interface Repo extends RepoEntryBase {
   /** Set when an upstream remote makes this repo a fork. */
   fork?: ForkInfo;
   lastCommitAt?: string;
+  /** Last change of HEAD's reflog (commit, checkout, pull, reset, …); absent without a reflog. */
+  headMovedAt?: string;
   /** Relative paths of other repos sharing the same normalized origin. */
   duplicateOf?: string[];
   /** Set when the repo could not be inspected (corrupt .git, git failure, …). */

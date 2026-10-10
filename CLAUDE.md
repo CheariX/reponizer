@@ -71,13 +71,15 @@ src/
     offload.ts          Offload/restore/placeholder logic + safety checks
     exportImport.ts     Export schema, import planning, LocalStorage snapshot
     filters.ts          List filter predicates + attention reasons (shared with menu bar)
+    sorting.ts          List sort orders: grouped "path" (default) or one flat list by last activity
+                        (lastActivityOf), name, or size
     bulkCommand.ts      Toast-driven driver shared by fetch-all/pull-all
 ```
 
 ## Data flow
 
 1. `scan.findRepoDirs` walks the root (skipping hidden dirs and `node_modules`, stopping at repos) → repo dirs + offloaded dirs.
-2. `inspect.inspectRepo` runs `git remote -v`, `status --porcelain=v2 --branch`, `stash list`, `log -1` in parallel (concurrency 8 across repos) → `Repo`. Failures produce an entry with `error` set — never a dropped repo. It then calls `fork.inspectFork`, which returns early unless the repo carries the configured upstream remote (`config.upstreamRemoteName`, pointing somewhere other than origin); only then does it pay for resolving an upstream ref (`rev-parse` over branch/HEAD/main/master) and `rev-list --left-right --count HEAD...<ref>`. Both steps are best effort — a never-fetched upstream still yields a `ForkInfo`, just without `ref`/`ahead`/`behind`.
+2. `inspect.inspectRepo` runs `git remote -v`, `status --porcelain=v2 --branch`, `stash list`, `log -1` in parallel (concurrency 8 across repos) → `Repo`. Failures produce an entry with `error` set — never a dropped repo. It then calls `fork.inspectFork`, which returns early unless the repo carries the configured upstream remote (`config.upstreamRemoteName`, pointing somewhere other than origin); only then does it pay for resolving an upstream ref (`rev-parse` over branch/HEAD/main/master) and `rev-list --left-right --count HEAD...<ref>`. Both steps are best effort — a never-fetched upstream still yields a `ForkInfo`, just without `ref`/`ahead`/`behind`. `headMovedAt` is the mtime of `.git/logs/HEAD` (no git call; absent when `.git` is a file), which "Last Activity" combines with `lastCommitAt`.
 3. `inspect.buildIndex` assembles entries, sorts by relative path, marks duplicates (same normalized origin), and attaches sizes (`du -sk`, batched, reused from the previous index on fast refreshes).
 4. `cache.ts` persists the `RepoIndex` as JSON in the Raycast `Cache`, keyed `index:v<CACHE_VERSION>:<root>`. **Bump `CACHE_VERSION` whenever `RepoIndex`/`RepoEntry` shapes change.**
 5. `useRepoIndex` renders the cached index immediately, rescans in the background on mount (reusing sizes), and exposes `refresh` / `reconcile(fullPath)` / `refreshEntries(paths)` so actions update only what they touched. no-view commands write the same cache via `cache.ts`, so the next list open is fresh.
@@ -105,6 +107,7 @@ src/
 ## Extension points
 
 - **New list filter**: add a value to `Filter` + a branch in `matchesFilter` (`lib/filters.ts`) and an item in the dropdown (`search-repos.tsx`).
+- **New sort order**: add a value to `SortOrder` + `SORT_ORDERS` and a branch in `sortEntries` (`lib/sorting.ts`); the "Sort Order" section of the search-bar dropdown and the "Sort by" submenu (`⌥⌘S`) list it automatically; the order is persisted in the `Cache` under `sort-order`. Every order but `path` renders one flat section with the group as item subtitle.
 - **New per-repo action**: add to the matching section component in `RepoActions.tsx`; use `withToast` + `ctl.reconcile(fullPath)` after mutating.
 - **New bulk operation**: implement an `(repo) => Promise<OpResult>` in `ops.ts` and reuse `runBulkCommand` / `runOnRepos`. Inside the action panel the helper is the module-level `bulkAction(ctl, title, op, select?)` in `RepoActions.tsx`; the optional selector narrows the run to a subset of the healthy repos ("Sync All Forks from Upstream" passes `(repo) => !!repo.fork`).
 - **New entry state on disk**: extend `scan.ts` detection, add a `kind` to `RepoEntry`, bump `CACHE_VERSION`.
@@ -119,6 +122,7 @@ src/
 - `confirmAlert` centres its message and has no alignment option, so dialogs keep lines short instead of labelling them: `util.describeTransition` puts a from/to pair on separate lines with the arrow between. Raycast also truncates the message after a few lines ("…"), so the explanatory sentence goes into the alert title, never as a lead line above the pair. Multi-fact strings joined with `·` or `→` wrap mid-path and are unreadable there; labelled key/value layout belongs in `Form.Description` rows (`ForkView`, clone form), which Raycast left-aligns.
 - Raycast's native dropdown filtering (`filtering`) breaks when the items change while the user searches, e.g. to offer the typed text as an item of its own. Searchable host/namespace dropdowns therefore pass `filtering={false}` and get pre-filtered items from `targets.targetOptions`: matches, then the typed value, then the current value — a controlled dropdown must always contain its value, and last it never takes the highlight (and the Enter key) from a match. Picking a value clears the query (`useRepoTarget`), since a leftover query would still filter the next time the dropdown opens.
 - Raycast `Form` children must be direct `Form.*` elements — a wrapper component rendering several fields is not accepted. Shared form logic therefore ships as a hook: `hooks/useRepoTarget.ts` holds the host/namespace state plus the option lists, and each form (`ForkView`, the clone destination form, `CreateRepoForm`) renders its own `Form.Dropdown`s from it.
+- The search bar takes a single accessory, so filter and sort order share one `List.Dropdown`. It is controlled by the filter (persisted in the `Cache` under `filter`, not `storeValue`): sort items carry a `sort:` value prefix, and picking one changes only the order, so the dropdown keeps showing the filter. A remembered host/owner filter that no longer exists falls back to "all", since a controlled dropdown must contain its value.
 - The menu bar command runs on an `interval` and must stay cheap: it renders from the cache and only rescans on explicit "Rescan Now".
 - `ray lint` enforces Prettier (printWidth 120) and Raycast eslint rules; run `npm run fix-lint` before committing.
 

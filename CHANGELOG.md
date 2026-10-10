@@ -1,5 +1,10 @@
 # Reponizer Changelog
 
+## [Sorting] - {PR_MERGE_DATE}
+
+- Sorting: besides the grouped path order (still the default), show all repositories as one list sorted by last activity, name, or size — from the filter dropdown in the search bar or with Sort by (`⌥⌘S`); the choice is remembered, and so is the filter
+- Last Activity puts the most recently worked-on repositories first: the later of the last commit and the last time HEAD moved (commit, checkout, pull, …), shown next to each repository; offloaded ones count from when they were offloaded
+
 ## [Terminal Tabs] - {PR_MERGE_DATE}
 
 - Open in Terminal (`⌘T`) adds a tab to the terminal's open window instead of always opening a new window, in Terminal.app, Ghostty, and Warp (as iTerm2 already did); without an open window, it opens one. kitty, Alacritty, and WezTerm still open a new window
