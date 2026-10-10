@@ -19,6 +19,7 @@
 - Publish Branch: push a branch that has never been pushed to `origin` and set it to track the pushed branch
 - The notifications of Create Repository, Fork to…, and Push to Origin open the host's website to create a repository by hand instead of guessing its "new repository" page
 - The "Default Fork Namespaces" preference is now "Default Namespaces" and also preselects the namespace for new repositories
+- A real GitHub fork is only offered when the original's `origin` is a plain `github.com/owner/repo` URL; other origins are forked by creating a new repository instead
 - Fixed: forking with “Keep the original local copy” and “All Branches and Tags” now also pushes the branches the checkout only tracks from its remote
 - Fixed: searching the namespace field of the fork and clone forms (and the host field of the new create form) now filters the list, and text that matches nothing can be picked as a new namespace
 

@@ -1,5 +1,5 @@
 import os from "node:os";
-import { getHostRules } from "./config";
+import { getHostRules, isSafePathSegments } from "./config";
 import { git, GitError, run } from "./git";
 import { parseRemoteUrl } from "./remotes";
 import type { Visibility } from "./types";
@@ -36,10 +36,15 @@ export function creationMethodFor(host: string, useGitHubCli = false): CreationM
   return rules.pushToCreate.has(rules.realToAlias.get(real) ?? real) ? "push" : "manual";
 }
 
-/** "owner/repo" when the URL points at a repository on github.com, the only kind gh can fork. */
+/**
+ * "owner/repo" when the URL points at a repository on github.com, the only kind gh can fork. The path
+ * becomes part of a `gh api` endpoint, and git-url-parse decodes "%2F" and "%3F": without the segment
+ * check an origin like "x/..%2F..%2Fuser%2Frepos%3F" would send the fork's POST to another endpoint.
+ */
 export function gitHubRepoPath(url: string | undefined): string | undefined {
   const parsed = url ? parseRemoteUrl(url) : undefined;
-  return parsed && isGitHubHost(parsed.host) ? parsed.path : undefined;
+  if (!parsed || !isGitHubHost(parsed.host)) return undefined;
+  return parsed.path.split("/").length === 2 && isSafePathSegments(parsed.path) ? parsed.path : undefined;
 }
 
 // ---------------------------------------------------------------------------

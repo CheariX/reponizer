@@ -234,12 +234,12 @@ async function remoteNames(fullPath: string): Promise<string[]> {
 async function rewireForFork(fullPath: string, plan: ForkPlan): Promise<void> {
   const names = await remoteNames(fullPath);
   if (plan.upstreamUrl && !names.includes(plan.upstreamRemoteName)) {
-    await git(fullPath, ["remote", "add", plan.upstreamRemoteName, plan.upstreamUrl]);
+    await git(fullPath, ["remote", "add", "--", plan.upstreamRemoteName, plan.upstreamUrl]);
   }
   if (names.includes("origin")) {
-    await git(fullPath, ["remote", "set-url", "origin", plan.targetUrl]);
+    await git(fullPath, ["remote", "set-url", "--", "origin", plan.targetUrl]);
   } else {
-    await git(fullPath, ["remote", "add", "origin", plan.targetUrl]);
+    await git(fullPath, ["remote", "add", "--", "origin", plan.targetUrl]);
   }
 }
 
