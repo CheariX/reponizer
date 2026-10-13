@@ -41,7 +41,8 @@ src/
                         upstreamRemoteName, defaultNamespaces — one default namespace per host)
                         + host rules (aliases, host-only, push-to-create)
     git.ts              execFile wrapper: PATH fix, GIT_TERMINAL_PROMPT=0, ssh BatchMode,
-                        1Password SSH agent fallback, timeouts, GitError with stderr
+                        1Password SSH agent fallback, timeouts, GitError with stderr,
+                        `-c log.showSignature=false` (user config would put signature checks into parsed stdout)
     scan.ts             Directory walk: finds .git dirs and offload placeholders
     status.ts           Parser for `git status --porcelain=v2 --branch`
     remotes.ts          URL parse/normalize/convert, expected-origin derivation, checkRemotes
