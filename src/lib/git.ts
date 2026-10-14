@@ -49,10 +49,16 @@ export class GitError extends Error {
   }
 }
 
+/**
+ * User config that changes the stdout we parse. `log.showSignature` prints gpg/ssh verification
+ * ("Good "git" signature for …") into the output of `log --format=…`.
+ */
+const OUTPUT_CONFIG = ["-c", "log.showSignature=false"];
+
 /** Run git in `cwd` and return trimmed stdout. Throws GitError with stderr detail on failure. */
 export async function git(cwd: string, args: string[], options: GitOptions = {}): Promise<string> {
   try {
-    const { stdout } = await execFileAsync("git", ["-C", cwd, ...args], {
+    const { stdout } = await execFileAsync("git", [...OUTPUT_CONFIG, "-C", cwd, ...args], {
       env: gitEnv(),
       timeout: options.timeoutMs ?? 15_000,
       maxBuffer: 10 * 1024 * 1024,
