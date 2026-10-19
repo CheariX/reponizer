@@ -19,6 +19,7 @@ src/
   create-repo.tsx       Create command: CreateRepoForm on the cached index (optional name argument)
   fetch-all.ts          no-view bulk fetch (thin wrapper over lib/bulkCommand)
   pull-all.ts           no-view bulk pull (fast-forward only)
+  pull-all-daily.ts     pull-all on `interval: 1d` (disabledByDefault): lib/bulkCommand's runScheduledBulkCommand
   export-repos.ts       no-view export (Downloads file + clipboard + LocalStorage snapshot)
   import-repos.tsx      Import form (file or snapshot → clone / placeholders)
   menubar-status.tsx    Menu bar health overview (reads cache; disabledByDefault)
@@ -74,7 +75,8 @@ src/
     filters.ts          List filter predicates + attention reasons (shared with menu bar)
     sorting.ts          List sort orders: grouped "path" (default) or one flat list by last activity
                         (lastActivityOf), name, or size
-    bulkCommand.ts      Toast-driven driver shared by fetch-all/pull-all
+    bulkCommand.ts      Driver shared by fetch-all/pull-all (toast) and pull-all-daily (runScheduledBulkCommand:
+                        background runs report via updateCommandMetadata subtitle and throw on failures)
 ```
 
 ## Data flow
@@ -124,6 +126,7 @@ src/
 - Raycast's native dropdown filtering (`filtering`) breaks when the items change while the user searches, e.g. to offer the typed text as an item of its own. Searchable host/namespace dropdowns therefore pass `filtering={false}` and get pre-filtered items from `targets.targetOptions`: matches, then the typed value, then the current value — a controlled dropdown must always contain its value, and last it never takes the highlight (and the Enter key) from a match. Picking a value clears the query (`useRepoTarget`), since a leftover query would still filter the next time the dropdown opens.
 - Raycast `Form` children must be direct `Form.*` elements — a wrapper component rendering several fields is not accepted. Shared form logic therefore ships as a hook: `hooks/useRepoTarget.ts` holds the host/namespace state plus the option lists, and each form (`ForkView`, the clone destination form, `CreateRepoForm`) renders its own `Form.Dropdown`s from it.
 - The search bar takes a single accessory, so filter and sort order share one `List.Dropdown`. It is controlled by the filter (persisted in the `Cache` under `filter`, not `storeValue`): sort items carry a `sort:` value prefix, and picking one changes only the order, so the dropdown keeps showing the filter. A remembered host/owner filter that no longer exists falls back to "all", since a controlled dropdown must contain its value.
+- A background launch (`environment.launchType === LaunchType.Background`, from a manifest `interval`) must not show toasts, HUDs, or alerts — they would fire on a timer, and Tinycast suppresses them. Report through `updateCommandMetadata` (the command's subtitle) and throw to have the launcher mark the command as failed. Interval commands stay `disabledByDefault`, so nothing runs on a schedule unless the user opts in.
 - The menu bar command runs on an `interval` and must stay cheap: it renders from the cache and only rescans on explicit "Rescan Now".
 - `ray lint` enforces Prettier (printWidth 120) and Raycast eslint rules; run `npm run fix-lint` before committing.
 

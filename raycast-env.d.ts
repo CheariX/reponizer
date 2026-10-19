@@ -46,6 +46,8 @@ declare namespace Preferences {
   export type FetchAll = ExtensionPreferences & {}
   /** Preferences accessible in the `pull-all` command */
   export type PullAll = ExtensionPreferences & {}
+  /** Preferences accessible in the `pull-all-daily` command */
+  export type PullAllDaily = ExtensionPreferences & {}
   /** Preferences accessible in the `export-repos` command */
   export type ExportRepos = ExtensionPreferences & {}
   /** Preferences accessible in the `import-repos` command */
@@ -71,6 +73,8 @@ declare namespace Arguments {
   export type FetchAll = {}
   /** Arguments passed to the `pull-all` command */
   export type PullAll = {}
+  /** Arguments passed to the `pull-all-daily` command */
+  export type PullAllDaily = {}
   /** Arguments passed to the `export-repos` command */
   export type ExportRepos = {}
   /** Arguments passed to the `import-repos` command */

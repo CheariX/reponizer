@@ -1,5 +1,9 @@
 # Reponizer Changelog
 
+## [Daily Pull] - {PR_MERGE_DATE}
+
+- Pull All Repositories Daily: a new command, disabled by default, that runs Pull All once a day in the background — same fast-forward-only pulls that skip dirty repositories; its subtitle shows when it last ran and how it went, and failures mark the command with the error
+
 ## [Sorting] - {PR_MERGE_DATE}
 
 - Sorting: besides the grouped path order (still the default), show all repositories as one list sorted by last activity, name, or size — from the filter dropdown in the search bar or with Sort by (`⌥⌘S`); the choice is remembered, and so is the filter

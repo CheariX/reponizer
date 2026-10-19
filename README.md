@@ -14,7 +14,7 @@ Reponizer keeps a large, structured git repository folder organized. It works wi
 - **Fork to…** — fork a cloned repo to another host or namespace (`⌘⇧F`), with autocompletion for the hosts and namespaces you already use (GitLab subgroups included) and an optional new name; your fork becomes the origin, the old one is kept as upstream, and the folder moves to its new place. On GitHub you can opt in to a real GitHub fork through the GitHub CLI
 - **Create repositories** — set up a new repository as an empty local copy in the right folder, with `origin` already pointing at it (`⌘N` in the list, or the *Create Repository* command); hosts you list under *Push-to-Create Hosts* create them on the first push, anywhere else you create the empty repository on its website and push with *Publish Branch*, and on GitHub you can opt in to the GitHub CLI instead
 - **Clone into structure** — paste any git URL (or a bare `github.com/owner/repo` path) and it lands in the right folder, keeping the protocol you pasted; you can also clone straight into a fork of your own
-- **Fetch / Pull everything** — bulk fetch and safe fast-forward pulls with progress and a failure report
+- **Fetch / Pull everything** — bulk fetch and safe fast-forward pulls with progress and a failure report, optionally once a day in the background
 - **Publish Branch** — push a branch that has never been pushed to `origin` and track it from then on
 - **Offload local copies** — verify a repo is fully pushed, then free its disk space while keeping a placeholder; re-download it anytime
 - **Export / import** — mirror your repository list across machines via a JSON file or the Raycast-synced snapshot
@@ -54,6 +54,7 @@ Reponizer works out of the box if your repositories live in `~/repos` in a `host
 | **Clone Repository** | Clone a URL into the correct place in the folder structure |
 | **Create Repository** | Create a new repository in the folder structure, ready to publish to its host |
 | **Fetch All / Pull All Repositories** | Bulk sync; pulls are fast-forward only and skip dirty repos |
+| **Pull All Repositories Daily** | Pull All once a day in the background (disabled by default; enable it in Raycast settings) |
 | **Export / Import Repository List** | Mirror the repo list across machines |
 | **Repository Health** | Menu bar overview (disabled by default; enable it in Raycast settings) |
 
