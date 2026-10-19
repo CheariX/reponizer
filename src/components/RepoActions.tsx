@@ -95,9 +95,19 @@ function OpenActions({ entry }: { entry: RepoEntry }) {
   return (
     <ActionPanel.Section title="Open">
       {entry.kind === "repo" && (
-        <Action.Open title="Open in Editor" icon={Icon.Code} target={entry.fullPath} application={config.editorApp} />
+        <Action.Open
+          title="Open in Editor"
+          icon={Icon.Code}
+          target={entry.fullPath}
+          application={config.editorApp}
+          shortcut={{ modifiers: [], key: "return" }}
+        />
       )}
-      <Action.ShowInFinder path={entry.fullPath} />
+      {/* Raycast shows ↵/⌘↵ on the first two actions implicitly, Tinycast neither label nor ⌘↵ */}
+      <Action.ShowInFinder
+        path={entry.fullPath}
+        shortcut={entry.kind === "repo" ? { modifiers: ["cmd"], key: "return" } : undefined}
+      />
       {entry.kind === "repo" && (
         <Action
           title="Open in Terminal"
